@@ -54,7 +54,7 @@ func (a *application) routes() http.Handler {
 	a.route(mux, "POST /api/login", "Вход", "", a.login)
 	a.route(mux, "POST /api/logout", "Выход", "user", func(r *request) any {
 		r.exec("UPDATE users SET version=version+1 WHERE id=?", r.user["id"])
-		r.cookie = a.sessionCookie("", -1)
+		r.cookie = sessionCookie(r.r, "", -1)
 		return nil
 	})
 	a.route(mux, "GET /api/me", "", "user", func(r *request) any { return r.profile(r.user.num("id")) })
@@ -161,7 +161,7 @@ func (a *application) page(w http.ResponseWriter, r *http.Request) {
 	}
 	origin := a.origin
 	if origin == "" {
-		origin = a.scheme() + "://" + r.Host
+		origin = requestScheme(r) + "://" + r.Host
 	}
 	linkedData := row{"@context": "https://schema.org", "@type": "WebSite", "name": "Темп", "url": origin}
 	if e != nil {
@@ -252,7 +252,9 @@ func main() {
 		indexHTML: string(must(os.ReadFile("index.html"))), limiter: loginLimiter{clients: make(map[string]attempt)}}
 	defer a.db.Close()
 	s := &http.Server{Handler: a.routes(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
-	listener := must(net.Listen("tcp", net.JoinHostPort(env("BIND", "127.0.0.1"), env("PORT", "3443"))))
+	bind := env("BIND", "127.0.0.1")
+	listener := must(net.Listen("tcp", net.JoinHostPort(bind, env("PORT", "3443"))))
+	var testHTTP net.Listener
 	if a.secure {
 		var cert tls.Certificate
 		certFile, keyFile := os.Getenv("TLS_CERT"), os.Getenv("TLS_KEY")
@@ -262,6 +264,9 @@ func main() {
 			cert = localTLS(dir)
 		}
 		s.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{cert}}
+		if port := os.Getenv("HTTP_TEST_PORT"); port != "" {
+			testHTTP = must(net.Listen("tcp", net.JoinHostPort(bind, port)))
+		}
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -277,6 +282,14 @@ func main() {
 	}()
 	// stdout marks readiness for the integration harness.
 	os.Stdout.WriteString("Темп · " + a.scheme() + "://" + listener.Addr().String() + "\n")
+	if testHTTP != nil {
+		os.Stdout.WriteString("Темп · HTTP для тестирования · http://" + testHTTP.Addr().String() + "\n")
+		go func() {
+			if err := s.Serve(testHTTP); !errors.Is(err, http.ErrServerClosed) {
+				log.Fatal(err)
+			}
+		}()
+	}
 	var err error
 	if a.secure {
 		err = s.ServeTLS(listener, "", "")

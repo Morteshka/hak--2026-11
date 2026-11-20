@@ -8,6 +8,7 @@ import { DatabaseSync } from "node:sqlite";
 import { once } from "node:events";
 import { randomBytes } from "node:crypto";
 import { createServer } from "node:net";
+import { request as httpsRequest } from "node:https";
 
 test("Полный цикл события, границы доступа и журнал", async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "temp-sport-"));
@@ -334,4 +335,69 @@ test("Полный цикл события, границы доступа и ж�
   await req("/admin/users/" + who.id, "POST", admin, { action: "delete" });
   assert.equal((await fetch(base + "/missing-page")).status, 404);
   assert.equal((await fetch(base + "/docs")).status, 200);
+});
+
+test("Тестовый HTTP и HTTPS используют одну базу и разные cookie", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "temp-dual-"));
+  const child = spawn(process.env.TEST_SERVER_BIN || "temp", [], {
+    env: {
+      ...process.env,
+      HTTPS: "1",
+      PORT: "0",
+      BIND: "127.0.0.1",
+      HTTP_TEST_PORT: "0",
+      DATA_DIR: dir,
+      SEED_DEMO: "0",
+      TLS_CERT: "",
+      TLS_KEY: "",
+    },
+    stdio: ["ignore", "pipe", "inherit"],
+  });
+  const stopped = once(child, "exit");
+  t.after(async () => {
+    child.kill();
+    await stopped;
+    rmSync(dir, { recursive: true, force: true });
+  });
+  const [http, https] = await Promise.race([
+    new Promise((resolve) => {
+      let logs = "";
+      child.stdout.on("data", (chunk) => {
+        logs += chunk.toString();
+        const plain = logs.match(/http:\/\/127\.0\.0\.1:\d+(?=\n)/)?.[0];
+        const secure = logs.match(/https:\/\/127\.0\.0\.1:\d+(?=\n)/)?.[0];
+        if (plain && secure) resolve([plain, secure]);
+      });
+    }),
+    stopped.then(() => { throw new Error("Server exited"); }),
+  ]);
+  const credentials = { email: "dual@example.org", password: randomBytes(16).toString("hex") };
+  const plain = await fetch(http + "/api/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Origin: http },
+    body: JSON.stringify({ ...credentials, name: "Dual", birth: "2000-01-01" }),
+  });
+  assert.equal(plain.status, 200);
+  assert.match(plain.headers.get("set-cookie"), /^session_http=/);
+  assert.doesNotMatch(plain.headers.get("set-cookie"), /; Secure/);
+  const { id } = await plain.json();
+  const login = await new Promise((resolve, reject) => {
+    // Only this throwaway service uses a generated loopback certificate.
+    const req = httpsRequest(https + "/api/login", {
+      method: "POST",
+      rejectUnauthorized: false,
+      headers: { "Content-Type": "application/json", Origin: https },
+    }, (res) => {
+      let data = "";
+      res.setEncoding("utf8");
+      res.on("data", (part) => { data += part; });
+      res.on("end", () => resolve({ code: res.statusCode, cookie: res.headers["set-cookie"][0], body: JSON.parse(data) }));
+    });
+    req.on("error", reject);
+    req.end(JSON.stringify(credentials));
+  });
+  assert.equal(login.code, 200);
+  assert.equal(login.body.id, id);
+  assert.match(login.cookie, /^session=/);
+  assert.match(login.cookie, /; Secure/);
 });

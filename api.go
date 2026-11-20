@@ -93,7 +93,7 @@ func jsonReply(w http.ResponseWriter, code int, body any) {
 func (a *application) authenticate(r *request) row {
 	token := strings.TrimPrefix(r.r.Header.Get("Authorization"), "Bearer ")
 	if token == "" {
-		if c, err := r.r.Cookie("session"); err == nil {
+		if c, err := r.r.Cookie(sessionCookieName(r.r)); err == nil {
 			token = c.Value
 		}
 	}
@@ -131,7 +131,7 @@ func (a *application) route(mux *http.ServeMux, pattern, title, access string, h
 		if writes {
 			if origin := raw.Header.Get("Origin"); origin != "" {
 				u, err := url.Parse(origin)
-				if err != nil || !strings.EqualFold(u.Host, raw.Host) || u.Scheme != a.scheme() {
+				if err != nil || !strings.EqualFold(u.Host, raw.Host) || u.Scheme != requestScheme(raw) {
 					fail(403, "Недопустимый источник запроса")
 				}
 			}
@@ -215,8 +215,20 @@ func validEmail(value string) bool {
 	return err == nil && addr.Address == value && strings.Contains(value, ".") && len(value) <= 254
 }
 
-func (a *application) sessionCookie(value string, maxAge int) *http.Cookie {
-	return &http.Cookie{Name: "session", Value: value, Path: "/", HttpOnly: true, Secure: a.secure, SameSite: http.SameSiteStrictMode, MaxAge: maxAge}
+func requestScheme(r *http.Request) string {
+	if r.TLS != nil {
+		return "https"
+	}
+	return "http"
+}
+func sessionCookieName(r *http.Request) string {
+	if r.TLS == nil {
+		return "session_http"
+	}
+	return "session"
+}
+func sessionCookie(r *http.Request, value string, maxAge int) *http.Cookie {
+	return &http.Cookie{Name: sessionCookieName(r), Value: value, Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteStrictMode, MaxAge: maxAge}
 }
 func (a *application) establishSession(r *request, user row) row {
 	now := time.Now()
@@ -224,7 +236,7 @@ func (a *application) establishSession(r *request, user row) row {
 		Issuer: "temp", Subject: strconv.FormatInt(user.num("id"), 10), IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(2 * time.Hour)),
 	}}).SignedString(a.jwtKey))
 	r.user = user
-	r.cookie = a.sessionCookie(token, 7200)
+	r.cookie = sessionCookie(r.r, token, 7200)
 	return row{"token": token, "id": user["id"], "name": user["name"], "role": user["role"]}
 }
 func (a *application) register(r *request) any {
