@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>__TITLE__ · Темп</title>
+    <meta name="description" content="__DESC__" />
+    <meta property="og:title" content="__TITLE__ · Темп" />
+    <meta property="og:description" content="__DESC__" />
+    <meta property="og:image" content="__IMAGE__" />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#151c22" />
+    <script type="application/ld+json">
+      __LD__
+    </script>
+    <link rel="stylesheet" href="/vendor/map/leaflet.css" />
+    <meta name="yandex-maps-key" content="__MAP_KEY__" />
+    <link rel="stylesheet" href="/static/style.css" />
+    <script defer src="/vendor/map/leaflet.js"></script>
+    <script defer src="/static/maps.js"></script>
+    <script defer src="/static/app.js"></script>
+  </head>
+  <body>
+    <header>
+      <div class="bar">
+        <a class="brand" href="/" aria-label="Темп — главная"
+          ><b class="mark"><i></i><i></i><i></i></b>ТЕМП<span>.</span></a
+        >
+        <nav id="nav">
+          <a href="/">События</a><a href="/map">Карта</a
+          ><a href="/profile">Мой профиль</a>
+        </nav>
+        <div class="headRight">
+          <span class="city"
+            ><i class="ic" data-i="map-pin"></i> Ростов-на-Дону</span
+          ><a class="login" href="/login" id="account">Войти</a>
+        </div>
+      </div>
+    </header>
+    <main id="main"><p>Загрузка событий…</p></main>
+    <footer>
+      <div>
+        <a class="footbrand" href="/">ТЕМП.</a>
+        <span>Спортивные события Ростова-на-Дону</span>
+      </div>
+      <div>
+        <a href="/privacy">Конфиденциальность</a><a href="/docs">Swagger API</a>
+      </div>
+    </footer>
+    <dialog id="filters"></dialog>
+  </body>
+</html>

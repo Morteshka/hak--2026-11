@@ -1,0 +1,18 @@
+services:
+  web:
+    build: .
+    ports:
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:${PUBLISH_PORT:-3443}:3443"
+    volumes:
+      - temp-data:/app/data
+    environment:
+      NODE_ENV: production
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@temp.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      YANDEX_MAPS_API_KEY: ${YANDEX_MAPS_API_KEY:-}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
+      TLS_PUBLIC_IP: ${TLS_PUBLIC_IP:-}
+    restart: unless-stopped
+volumes:
+  temp-data:
+
