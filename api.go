@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -296,7 +297,15 @@ func createEvent(r *request) any {
 		MinAge                                        *int
 	}](r)
 	b.Title, b.Description, b.Place = strings.TrimSpace(b.Title), strings.TrimSpace(b.Description), strings.TrimSpace(b.Place)
-	if !validText(b.Title, 3, 100) || !validText(b.Description, 10, 2000) || !validText(b.Place, 3, 150) || !slices.Contains(sports, b.Sport) ||
+	b.Sport = strings.TrimSpace(b.Sport)
+	if strings.IndexFunc(b.Sport, unicode.IsControl) >= 0 {
+		fail(400, "Укажите вид спорта одной строкой")
+	}
+	b.Sport = strings.Join(strings.Fields(b.Sport), " ")
+	if !validText(b.Sport, 2, 60) {
+		fail(400, "Укажите вид спорта длиной от 2 до 60 символов")
+	}
+	if !validText(b.Title, 3, 100) || !validText(b.Description, 10, 2000) || !validText(b.Place, 3, 150) ||
 		b.Lat < 47.1 || b.Lat > 47.36 || b.Lng < 39.52 || b.Lng > 39.92 || b.Duration < 5 || b.Duration > 1440 || b.Capacity < 1 || b.Capacity > 5000 ||
 		b.MinAge == nil || *b.MinAge < 0 || *b.MinAge > 100 || !slices.Contains([]string{"open", "ticket", "qr"}, b.Gate) {
 		fail(400, "Проверьте поля события и координаты")
@@ -441,7 +450,7 @@ func review(r *request) any {
 		return nil
 	}
 	owner := e["owner"]
-	stats := r.one("SELECT count(DISTINCT r.user) people,count(DISTINCT e.id) events FROM reviews r JOIN events e ON e.id=r.event LEFT JOIN moderation_resets m ON m.owner=e.owner WHERE e.owner=? AND r.id>COALESCE(m.last_review,0) AND r.stars<=2", owner)
+	stats := r.one("SELECT count(DISTINCT r.user) people,count(DISTINCT e.id) events FROM reviews r JOIN events e ON e.id=r.event LEFT JOIN moderation_resets m ON m.owner=e.owner WHERE e.owner=? AND r.id>COALESCE(m.last_review,0) AND r.stars<=2 AND NOT EXISTS (SELECT 1 FROM hidden_reviews h WHERE h.review=r.id)", owner)
 	if stats.num("people") >= 3 && stats.num("events") >= 2 {
 		if must(r.exec("UPDATE users SET banned=1,version=version+1 WHERE role='user' AND banned=0 AND id=?", owner).RowsAffected()) > 0 {
 			r.exec("DELETE FROM tickets WHERE user=? AND attended=0", owner)
@@ -452,16 +461,26 @@ func review(r *request) any {
 }
 func moderateEvent(r *request) any {
 	b := body[struct{ Status string }](r)
-	if !slices.Contains([]string{"approved", "rejected", "removed"}, b.Status) {
+	validateEventStatus(b.Status)
+	if applyEventStatus(r, r.event(), b.Status) {
+		r.audit(b.Status, r.id)
+	}
+	return nil
+}
+func validateEventStatus(status string) {
+	if !slices.Contains([]string{"approved", "rejected", "removed"}, status) {
 		fail(400, "Проверьте статус")
 	}
-	event := r.event()
-	if event.str("status") == "approved" && b.Status != "approved" {
+}
+func applyEventStatus(r *request, event row, status string) bool {
+	if event.str("status") == status {
+		return false
+	}
+	if event.str("status") == "approved" {
 		r.syncPoints(event.num("owner"))
 	}
-	r.exec("UPDATE events SET status=? WHERE id=?", b.Status, r.id)
-	r.audit(b.Status, r.id)
-	return nil
+	r.exec("UPDATE events SET status=? WHERE id=?", status, event["id"])
+	return true
 }
 func moderateUser(r *request) any {
 	b := body[struct{ Action string }](r)

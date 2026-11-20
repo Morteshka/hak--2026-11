@@ -258,6 +258,9 @@ nav a.active:after {
   gap: 8px;
   margin-bottom: 19px;
 }
+.sportFilter {
+  width: min(260px, 100%);
+}
 .chip {
   border-radius: 30px;
   background: white;
@@ -628,6 +631,103 @@ textarea {
 }
 .link {
   text-decoration: underline;
+}
+.adminMetrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+.adminMetric {
+  display: grid;
+  gap: 5px;
+  align-content: start;
+  padding: 14px;
+  border: 1px solid #dce6d9;
+  background: #f6faf2;
+  border-radius: 14px;
+  color: #253223;
+}
+a.adminMetric:hover {
+  background: #edf5e7;
+}
+.adminMetric strong {
+  font-size: 28px;
+  line-height: 1.1;
+}
+.adminMetric span {
+  font-size: 14px;
+}
+.adminTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: start;
+}
+.adminTabs a {
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: #edf2e8;
+  color: #253223;
+}
+.adminTabs a[aria-current="page"] {
+  background: #253223;
+  color: #fff;
+}
+.adminFilters {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr));
+  align-items: end;
+}
+.adminBulk {
+  padding: 14px;
+  background: #f6faf2;
+  border-radius: 12px;
+}
+.adminCheck {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+}
+.adminCheck input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  accent-color: #3b6b32;
+}
+.adminRow p {
+  margin: 3px 0;
+}
+.adminRow small {
+  display: block;
+  color: #606f68;
+  font-weight: normal;
+}
+.adminRow .actions {
+  align-items: center;
+  margin-top: 8px;
+}
+.adminState {
+  padding: 5px 10px;
+  border-radius: 20px;
+  background: #edf2e8;
+  font-size: 13px;
+}
+.adminPages {
+  margin-top: 16px;
+}
+.adminDialog {
+  width: min(92vw, 475px);
+  padding: 24px;
+  border: 1px solid #dce6d9;
+  border-radius: 16px;
+  color: #172025;
+}
+.adminDialog h2, .adminDialog p {
+  margin: 0;
+}
+.adminDialog::backdrop {
+  background: #17202599;
 }
 .adminTable {
   overflow: auto;

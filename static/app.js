@@ -11,12 +11,14 @@ const esc = (v) =>
   );
 const ic = (name) =>
   `<i aria-hidden="true" class="ic" style="--icon:url('/vendor/icon/${name}.svg')"></i>`;
-const sports = {
-  Бег: ["footprints", "running"],
-  Баскетбол: ["circle-dot", "basketball"],
-  Йога: ["flower-2", "yoga"],
-  Футбол: ["goal", "football"],
+const sportArt = {
+  бег: ["footprints", "running"],
+  баскетбол: ["circle-dot", "basketball"],
+  йога: ["flower-2", "yoga"],
+  футбол: ["goal", "football"],
 };
+const sportKey = (value) => value.trim().replace(/\s+/gu, " ").toLocaleLowerCase("ru-RU");
+const sportVisual = (value) => Object.hasOwn(sportArt, sportKey(value)) ? sportArt[sportKey(value)] : ["trophy", "hero"];
 const status = {
   approved: "Одобрено",
   pending: "На проверке",
@@ -82,23 +84,25 @@ function handleForm(id, fn) {
   };
 }
 function card(e) {
-  const [icon, image] = sports[e.sport];
+  const [icon, image] = sportVisual(e.sport);
   const admission = e.gate === "qr" ? `<span class="qr-label">${ic("qr-code")} QR-допуск</span>` : "";
   return `<a class="card" href="/events/${e.id}"><div class="photo"><img src="/static/media/${image}.jpg" alt=""><span class="tag">${ic(icon)}${esc(e.sport)}</span><span class="availability">Свободно ${e.capacity - e.booked} из ${e.capacity}</span></div><div class="cardBody"><div class="when">${date(e.start)}</div><h3>${esc(e.title)}</h3><div class="smallrow"><span>${ic("map-pin")}${esc(e.place)}</span></div><div class="cardFoot"><div class="smallrow"><span>${ic("clock-3")}${e.duration} мин</span>${admission}</div><span class="round">${ic("arrow-up-right")}</span></div></div></a>`;
 }
 async function catalogue() {
   events = await api("/events");
   const isMap = route === "/map";
+  const upcoming = events.filter((e) => Date.parse(e.start) > Date.now());
+  const names = new Map(upcoming.map((e) => [sportKey(e.sport), e.sport]));
+  const options = Object.fromEntries([...names].sort((a, b) => a[1].localeCompare(b[1], "ru")));
   main.innerHTML =
     (isMap
       ? crumb("Карта событий")
       : `<section class="hero"><div><div class="heroTag"><i></i> СПОРТИВНОЕ СООБЩЕСТВО РОСТОВА</div><h1>Твой город.<br><em>Твой темп.</em></h1><p>Находи тренировки рядом и собирай свою команду.</p><div class="actions">${link("#events", ic("compass") + " Найти событие")}${link("/create", ic("plus") + " Создать событие", "ghost")}</div></div></section>`) +
     `<section id="events"><div class="sectionTop"><div><div class="eyebrow">РОСТОВ-НА-ДОНУ</div><h2>${isMap ? "Карта событий" : "Ближайшие события"}</h2></div><div class="switch"><a href="/" aria-label="Список" class="${isMap ? "" : "on"}">${ic("layout-grid")}<span class="lbl">Список</span></a><a href="/map" aria-label="Карта" class="${isMap ? "on" : ""}">${ic("map")}<span class="lbl">Карта</span></a></div></div><div id="chips" class="chips"></div><div id="results"></div></section>`;
   function draw() {
-    const filtered = events.filter(
+    const filtered = upcoming.filter(
       (e) =>
-        Date.parse(e.start) > Date.now() &&
-        (!sport || sport === e.sport) &&
+        (!sport || sport === sportKey(e.sport)) &&
         (!onlyFree || e.booked < e.capacity) &&
         (!day ||
           new Date(Date.parse(e.start) + 10800000)
@@ -106,20 +110,17 @@ async function catalogue() {
             .startsWith(day)),
     );
     $("#chips").innerHTML =
-      ["", ...Object.keys(sports)]
-        .map(
-          (s) =>
-            `<button data-sport="${s}" class="chip ${s === sport ? "on" : ""}">${ic(s ? sports[s][0] : "layers")}${s || "Все виды"}</button>`,
-        )
-        .join("") +
+      '<label class="sportFilter">Вид спорта<select name="sport-filter"><option value="">Все виды</option>' +
+      Object.entries(options).map(([key, label]) => `<option value="${esc(key)}">${esc(label)}</option>`).join("") +
+      '</select></label>' +
       `<button id="filter" class="chip filter ${onlyFree || day ? "on" : ""}">${ic("sliders-horizontal")} Фильтры</button>`;
-    document.querySelectorAll("[data-sport]").forEach(
-      (b) =>
-        (b.onclick = () => {
-          sport = b.dataset.sport;
-          draw();
-        }),
-    );
+    const picker = $('[name="sport-filter"]');
+    picker.value = sport;
+    picker.onchange = () => {
+      sport = picker.value;
+      draw();
+      $('[name="sport-filter"]').focus();
+    };
     $("#filter").onclick = () => {
       const d = $("#filters");
       d.innerHTML =
@@ -165,7 +166,7 @@ function auth(register) {
 function create() {
   main.innerHTML =
     crumb("Создать событие") +
-    `<div class="narrow"><h1 class="pageTitle">Создать событие</h1>${panel("Заявка на проведение", form("create", input("title", "Название", "text", "minlength=3 maxlength=100") + select("sport", "Вид спорта", Object.fromEntries(Object.keys(sports).map((s) => [s, s]))) + '<label>Программа тренировки<textarea name="description" minlength="10" maxlength="2000" required></textarea></label>' + input("place", "Место встречи") + '<label>Выберите точку на карте Ростова-на-Дону</label><div id="map" class="map"></div><div class="cols">' + input("lat", "Широта", "number", "step=any value=47.223 min=47.10 max=47.36") + input("lng", "Долгота", "number", "step=any value=39.722 min=39.52 max=39.92") + "</div>" + input("start", "Начало по Москве", "datetime-local") + '<div class="cols">' + input("duration", "Длительность, минут", "number", "min=5 max=1440 value=60") + input("capacity", "Количество мест", "number", "min=1 max=5000 value=20") + "</div>" + input("minAge", "Минимальный возраст", "number", "min=0 max=100 value=0") + select("gate", "Допуск на площадку", gates), "Отправить на проверку"))}</div>`;
+    `<div class="narrow"><h1 class="pageTitle">Создать событие</h1>${panel("Заявка на проведение", form("create", input("title", "Название", "text", "minlength=3 maxlength=100") + input("sport", "Вид спорта", "text", 'minlength="2" maxlength="60" placeholder="Например, настольный теннис"') + '<label>Программа тренировки<textarea name="description" minlength="10" maxlength="2000" required></textarea></label>' + input("place", "Место встречи") + '<label>Выберите точку на карте Ростова-на-Дону</label><div id="map" class="map"></div><div class="cols">' + input("lat", "Широта", "number", "step=any value=47.223 min=47.10 max=47.36") + input("lng", "Долгота", "number", "step=any value=39.722 min=39.52 max=39.92") + "</div>" + input("start", "Начало по Москве", "datetime-local") + '<div class="cols">' + input("duration", "Длительность, минут", "number", "min=5 max=1440 value=60") + input("capacity", "Количество мест", "number", "min=1 max=5000 value=20") + "</div>" + input("minAge", "Минимальный возраст", "number", "min=0 max=100 value=0") + select("gate", "Допуск на площадку", gates), "Отправить на проверку"))}</div>`;
   tempMaps.pick($("#map"), $("[name=lat]"), $("[name=lng]"));
   const createSeries = document.createElement("div");
   createSeries.id = "create-series";
@@ -251,7 +252,7 @@ async function detail() {
   const pass = t ? `<div id="my-ticket">${panel("Ваш билет", ticketPass(t))}</div>` : "";
   main.innerHTML =
     crumb(e.title) +
-    `<div class="narrow"><img class="detailphoto" src="/static/media/${sports[e.sport][1]}.jpg" alt=""><p class="when">${date(e.start)} МСК · ${esc(e.sport)}</p><h1 class="pageTitle">${esc(e.title)}</h1><p>${esc(e.description)}</p><div class="smallrow"><span>${ic("map-pin")}${esc(e.place)}</span><span>${e.duration} мин</span><span>${e.minAge}+</span></div><p>Организатор · <a class="link" href="/people/${e.owner}">${esc(e.organizer)}</a><br>Допуск · ${gates[e.gate]}<br>Свободных мест · ${e.capacity - e.booked} из ${e.capacity}</p><div class="actions">${t ? link("#my-ticket", "Мой билет") + (Date.now() < Date.parse(e.start) && !t.attended ? btn("Отменить запись", "cancel", e.id) : "") : e.owner !== me?.id && Date.parse(e.start) > Date.now() && e.booked < e.capacity ? (me ? btn("Записаться", "join", e.id, "lime") : link("/login?next=" + route, "Войти и записаться")) : ""}</div>${pass}${panel("Место встречи", '<div id="map" class="map"></div>')}<div id="manage"></div>${panel("Отзывы участников", e.reviews.map((x) => `<div class="row"><strong>${esc(x.name)} · ${x.stars}/5</strong>${esc(x.body)}</div>`).join("") || "Участники пока не оставили отзывов.")}${t?.attended && done ? panel("Ваш отзыв", form("review", select("stars", "Оценка", { 5: "5", 4: "4", 3: "3", 2: "2", 1: "1" }) + '<label>Впечатления<textarea name="body" minlength="5" maxlength="1500" required></textarea></label>', "Опубликовать")) : ""}</div>`;
+    `<div class="narrow"><img class="detailphoto" src="/static/media/${sportVisual(e.sport)[1]}.jpg" alt=""><p class="when">${date(e.start)} МСК · ${esc(e.sport)}</p><h1 class="pageTitle">${esc(e.title)}</h1><p>${esc(e.description)}</p><div class="smallrow"><span>${ic("map-pin")}${esc(e.place)}</span><span>${e.duration} мин</span><span>${e.minAge}+</span></div><p>Организатор · <a class="link" href="/people/${e.owner}">${esc(e.organizer)}</a><br>Допуск · ${gates[e.gate]}<br>Свободных мест · ${e.capacity - e.booked} из ${e.capacity}</p><div class="actions">${t ? link("#my-ticket", "Мой билет") + (Date.now() < Date.parse(e.start) && !t.attended ? btn("Отменить запись", "cancel", e.id) : "") : e.owner !== me?.id && Date.parse(e.start) > Date.now() && e.booked < e.capacity ? (me ? btn("Записаться", "join", e.id, "lime") : link("/login?next=" + route, "Войти и записаться")) : ""}</div>${pass}${panel("Место встречи", '<div id="map" class="map"></div>')}<div id="manage"></div>${panel("Отзывы участников", e.reviews.map((x) => `<div class="row"><strong>${esc(x.name)} · ${x.stars}/5</strong>${esc(x.body)}</div>`).join("") || "Участники пока не оставили отзывов.")}${t?.attended && done ? panel("Ваш отзыв", form("review", select("stars", "Оценка", { 5: "5", 4: "4", 3: "3", 2: "2", 1: "1" }) + '<label>Впечатления<textarea name="body" minlength="5" maxlength="1500" required></textarea></label>', "Опубликовать")) : ""}</div>`;
   tempMaps.show($("#map"), [e]);
   $("#manage").insertAdjacentHTML("beforebegin", '<div id="event-series"></div>');
   fillEventSeries(e).catch((error) => { $("#event-series").textContent = error.message; });
@@ -323,34 +324,6 @@ async function detail() {
       };
   }
 }
-async function admin() {
-  const a = await api("/admin");
-  main.innerHTML =
-    crumb("Администрирование") +
-    '<div class="sectionTop"><h1 class="pageTitle">Администрирование</h1>' + link("/shop/admin", "Управление магазином") + '</div>' +
-    panel(
-      "Модерация мероприятий",
-      a.events
-        .map(
-          (e) =>
-            `<div class="row"><strong>${esc(e.title)}</strong>${esc(e.organizer)} · ${date(e.start)} · ${status[e.status]}<div class="actions">${e.status !== "approved" ? btn("Одобрить", "approved", e.id, "lime") : ""}${e.status === "pending" ? btn("Отклонить", "rejected", e.id) : ""}${e.status !== "removed" ? btn("Снять с публикации", "removed", e.id) : ""}</div><details><summary>Данные заявки</summary><p>${esc(e.description)}</p>${esc(e.place)} (${e.lat}, ${e.lng}) · ${e.capacity} мест · ${e.minAge}+ · ${gates[e.gate]}</details></div>`,
-        )
-        .join(""),
-    ) +
-    panel(
-      "Пользователи",
-      a.users
-        .map(
-          (u) =>
-            `<div class="row"><strong>${esc(u.name)}</strong>${esc(u.email)} · ${u.deleted ? "Удалён" : u.banned ? "Заблокирован" : u.role}<div class="actions">${u.role === "user" && !u.deleted ? btn(u.banned ? "Разблокировать" : "Заблокировать", u.banned ? "unban" : "ban", u.id) + btn("Удалить", "delete", u.id) : ""}</div></div>`,
-        )
-        .join(""),
-    ) +
-    panel(
-      "Журнал действий",
-      `<div class="adminTable"><table><thead><tr><th>Время UTC</th><th>Пользователь ID</th><th>Действие</th><th>Объект</th><th>IP</th></tr></thead><tbody>${a.logs.map((l) => `<tr>${[l.at, l.actor, l.action, l.target, l.ip].map((v) => `<td>${esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`,
-    );
-}
 main.addEventListener("click", async (ev) => {
   const b = ev.target.closest("[data-action]");
   if (!b) return;
@@ -375,12 +348,6 @@ main.addEventListener("click", async (ev) => {
     if (a === "mark") await api(route + "/checkin", "POST", { ticket: id });
     if (a.startsWith("award"))
       await api(route + "/awards", "POST", { ticket: id, rank: +a.slice(-1) });
-    if (["approved", "removed", "rejected"].includes(a))
-      await api("/admin/events/" + id, "POST", { status: a });
-    if (["ban", "unban", "delete"].includes(a)) {
-      if (!confirm("Подтвердить действие с пользователем?")) return;
-      await api("/admin/users/" + id, "POST", { action: a });
-    }
     location.reload();
   } catch (e) {
     alert(e.message);

@@ -118,7 +118,6 @@ func passwordMatches(password, stored string) bool {
 	return err == nil && subtle.ConstantTimeCompare(decoded, derivePassword(password, salt)) == 1
 }
 
-var sports = []string{"Бег", "Баскетбол", "Йога", "Футбол"}
 var moscow = time.FixedZone("Europe/Moscow", 3*60*60)
 
 func openDB(dir string) *sql.DB {
@@ -130,6 +129,7 @@ func openDB(dir string) *sql.DB {
 	s.exec(schema)
 	s.exec(shopSchema)
 	s.exec(seriesSchema)
+	s.exec(adminSchema)
 	tx := must(db.Begin())
 	defer tx.Rollback()
 	s.queryer = tx
@@ -158,20 +158,20 @@ func openDB(dir string) *sql.DB {
 func (s store) seed() {
 	owner := must(s.exec("INSERT INTO users(name,email,hash) VALUES(?,?,?)", "Команда Темпа", "club@seed.invalid", passwordHash(randomHex(32))).LastInsertId())
 	fixtures := []struct {
-		title, place, description, gate string
-		lat, lng                        float64
-		hour, duration, limit           int
+		title, sport, place, description, gate string
+		lat, lng                               float64
+		hour, duration, limit                  int
 	}{
-		{"Утренний бег по набережной", "Набережная Дона", "Лёгкая разминка и совместная пробежка вдоль Дона. Подойдёт любой темп.", "qr", 47.2138, 39.7172, 8, 60, 20},
-		{"Стритбол 3×3", "Парк Левобережный", "Собираемся на открытой площадке, делимся на тройки и играем короткие матчи.", "ticket", 47.2036, 39.7392, 18, 90, 18},
-		{"Йога в парке", "Парк Горького", "Спокойная практика на свежем воздухе. Возьмите коврик и воду.", "open", 47.2202, 39.7095, 10, 60, 15},
-		{"Футбол на выходных", "Парк Островского", "Товарищеская игра с разминкой. Команды составим на площадке.", "qr", 47.2528, 39.7661, 16, 90, 22},
+		{"Утренний бег по набережной", "Бег", "Набережная Дона", "Лёгкая разминка и совместная пробежка вдоль Дона. Подойдёт любой темп.", "qr", 47.2138, 39.7172, 8, 60, 20},
+		{"Стритбол 3×3", "Баскетбол", "Парк Левобережный", "Собираемся на открытой площадке, делимся на тройки и играем короткие матчи.", "ticket", 47.2036, 39.7392, 18, 90, 18},
+		{"Йога в парке", "Йога", "Парк Горького", "Спокойная практика на свежем воздухе. Возьмите коврик и воду.", "open", 47.2202, 39.7095, 10, 60, 15},
+		{"Футбол на выходных", "Футбол", "Парк Островского", "Товарищеская игра с разминкой. Команды составим на площадке.", "qr", 47.2528, 39.7661, 16, 90, 22},
 	}
 	for i, e := range fixtures {
 		date := time.Now().In(moscow).AddDate(0, 0, i+1)
 		start := time.Date(date.Year(), date.Month(), date.Day(), e.hour, 0, 0, 0, moscow).UTC()
 		s.exec("INSERT INTO events(owner,title,sport,description,place,lat,lng,start,duration,capacity,minAge,gate,status) VALUES(?,?,?,?,?,?,?,?,?,?,12,?,'approved')",
-			owner, e.title, sports[i], e.description, e.place, e.lat, e.lng, formatTime(start), e.duration, e.limit, e.gate)
+			owner, e.title, e.sport, e.description, e.place, e.lat, e.lng, formatTime(start), e.duration, e.limit, e.gate)
 	}
 }
 

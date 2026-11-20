@@ -51,7 +51,7 @@ func (r *request) linkEdition(event row, input seriesInput) row {
 		if series == nil || series.num("owner") != owner {
 			fail(404, "Серия не найдена")
 		}
-		if series.str("sport") != sport {
+		if !strings.EqualFold(series.str("sport"), sport) {
 			fail(409, "Вид спорта выпуска должен совпадать с серией")
 		}
 	}

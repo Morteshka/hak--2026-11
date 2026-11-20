@@ -1,7 +1,7 @@
 const shopKinds = { physical: "Товар", badge: "Значок", theme: "Тема профиля" };
 const shopThemes = { mint: "Мятная", ocean: "Океан", violet: "Сирень", amber: "Янтарь" };
 const orderStates = { reserved: "Зарезервирован", ready: "Готов к выдаче", fulfilled: "Получен", cancelled: "Отменён · баллы возвращены" };
-const pointKinds = { attendance: "Участие в мероприятии", organization: "Проведено мероприятие", city_bonus: "Бонус организатора города", purchase: "Покупка в магазине", refund: "Возврат за заказ" };
+const pointKinds = { attendance: "Участие в мероприятии", organization: "Проведено мероприятие", city_bonus: "Бонус организатора города", purchase: "Покупка в магазине", refund: "Возврат за заказ", admin_adjustment: "Корректировка администратором" };
 
 function profileIdentity(person, style, isOwn) {
   const theme = Object.hasOwn(shopThemes, style.theme) ? style.theme : "default";

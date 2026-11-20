@@ -66,7 +66,7 @@ func (a *application) routes() http.Handler {
 		if !r.available(e) && !r.manages(e) {
 			fail(404, "Событие недоступно")
 		}
-		e["reviews"] = r.all("SELECT r.stars,r.body,u.name FROM reviews r JOIN users u ON u.id=r.user WHERE event=? ORDER BY r.id DESC", r.id)
+		e["reviews"] = r.all("SELECT r.stars,r.body,u.name FROM reviews r JOIN users u ON u.id=r.user WHERE event=? AND NOT EXISTS (SELECT 1 FROM hidden_reviews h WHERE h.review=r.id) ORDER BY r.id DESC", r.id)
 		if membership := r.one("SELECT series FROM event_editions WHERE event=?", r.id); membership != nil {
 			e["seriesId"] = membership["series"]
 		}
@@ -89,6 +89,7 @@ func (a *application) routes() http.Handler {
 	})
 	a.route(mux, "POST /api/admin/events/{id}", "Модерация события", "admin", moderateEvent)
 	a.route(mux, "POST /api/admin/users/{id}", "Управление пользователем", "admin", moderateUser)
+	a.adminRoutes(mux)
 	a.shopRoutes(mux)
 	a.seriesRoutes(mux)
 	mux.HandleFunc("GET /api/openapi.json", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "openapi.json") })

@@ -2,7 +2,7 @@ function seriesFields(sport, items, single, selected) {
   return '<label>Серия мероприятий<select name="seriesChoice">' +
     (single ? '<option value="">Разовое мероприятие</option>' : '<option value="">Выберите вариант</option>') +
     '<option value="new">Начать новую серию</option>' +
-    items.filter((item) => item.sport === sport).map((item) =>
+    items.filter((item) => sportKey(item.sport) === sportKey(sport)).map((item) =>
       '<option value="' + item.id + '"' + (item.id === selected ? ' selected' : '') + '>' + esc(item.title) + '</option>'
     ).join('') +
     '</select></label><label data-series-title hidden>Название серии<input name="seriesTitle" type="text" minlength="3" maxlength="100" disabled></label>';

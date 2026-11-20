@@ -79,11 +79,12 @@ test("Полный цикл события, границы доступа и ж�
   const spec = await req("/openapi.json");
   assert.ok(spec.paths["/api/events/{id}/checkin"].post.requestBody);
   assert.ok(spec.components.schemas.Profile);
+  assert.match(spec.paths["/api/admin/overview"].get.summary, /Сводка/);
   await req("/admin", "GET", u.token, null, 403);
   const data = {
     title: "Тестовый забег",
     description: "Групповая тренировка на стадионе",
-    sport: "Бег",
+    sport: "  Настольный   теннис  ",
     place: "Стадион",
     lat: 47.22,
     lng: 39.72,
@@ -94,11 +95,16 @@ test("Полный цикл события, границы доступа и ж�
     gate: "qr",
   };
   await req("/events", "POST", org.token, { ...data, lat: 0 }, 400);
+  await req("/events", "POST", org.token, { ...data, sport: " " }, 400);
+  await req("/events", "POST", org.token, { ...data, sport: "Бег\nпрыжки" }, 400);
   const { id } = await req("/events", "POST", org.token, data),
     path = "/events/" + id;
+  const pending = await req("/admin/events?status=pending", "GET", admin);
+  assert.equal(pending.items.find((entry) => entry.id === id).sport, "Настольный теннис");
   assert.equal((await req("/events")).length, 0);
   await req(path + "/join", "POST", u.token, null, 409);
   await req("/admin/events/" + id, "POST", admin, { status: "approved" });
+  assert.equal((await req(path)).sport, "Настольный теннис");
   await req(path + "/join", "POST", young.token, null, 403);
   const contenders = await Promise.all(
     [u, other].map(async (who) => {
@@ -225,6 +231,20 @@ test("Полный цикл события, границы доступа и ж�
   await req("/admin/users/" + org.id, "POST", admin, { action: "unban" });
   await req(finalPath+"/reviews","POST",other.token,{stars:2,body:"Старт задержался"});
   assert.ok((await req("/events")).length>0);
+  await req("/admin/overview", "GET", null, null, 401);
+  await req("/admin/reviews", "GET", u.token, null, 403);
+  const reviewPage = await req("/admin/reviews?stars=low&limit=1", "GET", admin);
+  assert.equal(reviewPage.items.length, 1);
+  const reviewed = reviewPage.items[0];
+  const following = await req("/admin/reviews?limit=1&before=" + reviewPage.nextBefore, "GET", admin);
+  assert.ok(following.items[0].id < reviewed.id);
+  const moderation = "/admin/reviews/" + reviewed.id;
+  await req(moderation, "POST", admin, { hidden: true }, 400);
+  await req(moderation, "POST", admin, { hidden: true, reason: "Проверка модерации" });
+  assert.ok((await req("/admin/reviews?state=hidden", "GET", admin)).items.some((r) => r.id === reviewed.id));
+  assert.ok(!(await req(finalPath)).reviews.some((r) => r.body === reviewed.body));
+  await req(moderation, "POST", admin, { hidden: false, reason: "Отзыв проверен" });
+  assert.ok((await req(finalPath)).reviews.some((r) => r.body === reviewed.body));
   // Points, order retries, last item contention, refund and public decoration.
   const buyer = u;
   const initial = await req("/wallet", "GET", buyer.token);
@@ -326,6 +346,34 @@ test("Полный цикл события, границы доступа и ж�
   await req("/admin/events/" + upcoming.id, "POST", admin, { status: "approved" });
   assert.equal((await req(seriesPath)).editions.at(-1).edition,5);
   assert.equal((await req("/events/" + upcoming.id)).seriesId,seriesID);
+  const overview = await req("/admin/overview", "GET", admin);
+  assert.equal(overview.upcomingEvents, 1);
+  const bulk = "/admin/events/bulk";
+  const eventChange = { ids: [upcoming.id, 9999999], status: "removed", reason: "Проверка отката" };
+  await req(bulk, "POST", admin, eventChange, 404);
+  assert.equal((await req("/events/" + upcoming.id)).status, "approved");
+  const archive = { ...eventChange, ids: [upcoming.id, upcoming.id] };
+  assert.equal((await req(bulk, "POST", admin, archive)).updated, 1);
+  assert.equal((await req(bulk, "POST", admin, archive)).updated, 0);
+  assert.equal((await req("/admin/events?status=removed&q=" + upcoming.id, "GET", admin)).items[0].id, upcoming.id);
+  assert.equal((await req(bulk, "POST", admin, { ...archive, status: "approved" })).updated, 1);
+  const points = "/admin/users/" + who.id + "/points";
+  const adjustment = { delta: 25, reason: "Награда за помощь", requestId: randomBytes(16).toString("hex") };
+  await req(points, "POST", who.token, adjustment, 403);
+  const balanceBefore = (await req("/wallet", "GET", who.token)).balance;
+  const adjusted = await req(points, "POST", admin, adjustment);
+  assert.equal(adjusted.balance, balanceBefore + 25);
+  assert.deepEqual(await req(points, "POST", admin, adjustment), adjusted);
+  await req(points, "POST", admin, { ...adjustment, delta: 26 }, 409);
+  await req(points, "POST", admin, { ...adjustment, delta: -adjusted.balance - 1, requestId: randomBytes(16).toString("hex") }, 409);
+  assert.equal((await req("/wallet", "GET", who.token)).history[0].kind, "admin_adjustment");
+  const adminActions = await req("/admin/logs?actor=1&q=Награда", "GET", admin);
+  assert.equal(adminActions.items.length, 1);
+  await req("/admin/users/" + who.id + "/sessions/revoke", "POST", admin);
+  await req("/me", "GET", who.token, null, 401);
+  await req("/admin/users/1/sessions/revoke", "POST", admin, null, 404);
+  await req("/admin/users?limit=101", "GET", admin, null, 400);
+  assert.equal((await req("/admin/users?q="+who.id, "GET", admin)).items[0].id, who.id);
   await req("/admin/users/" + who.id, "POST", admin, { action: "ban" });
   await req("/me", "GET", who.token, null, 401);
   const dashboard = await req("/admin", "GET", admin);
