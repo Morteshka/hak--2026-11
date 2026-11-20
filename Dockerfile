@@ -22,8 +22,8 @@ WORKDIR /app
 RUN mkdir data && chown 1000:1000 data
 COPY --from=build /out/temp /usr/local/bin/temp
 COPY --from=assets /app/node_modules ./node_modules
-COPY index.html openapi.json ./
-COPY static ./static
+COPY --chown=1000:1000 index.html openapi.json ./
+COPY --chown=1000:1000 static ./static
 USER 1000:1000
 ENV BIND=0.0.0.0 PORT=3443
 EXPOSE 3443
