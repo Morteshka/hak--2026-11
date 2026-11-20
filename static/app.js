@@ -83,7 +83,8 @@ function handleForm(id, fn) {
 }
 function card(e) {
   const [icon, image] = sports[e.sport];
-  return `<a class="card" href="/events/${e.id}"><div class="photo"><img src="/static/media/${image}.jpg" alt=""><span class="tag">${ic(icon)}${esc(e.sport)}</span><span class="availability">Свободно ${e.capacity - e.booked} из ${e.capacity}</span></div><div class="cardBody"><div class="when">${date(e.start)}</div><h3>${esc(e.title)}</h3><div class="smallrow"><span>${ic("map-pin")}${esc(e.place)}</span></div><div class="cardFoot"><span class="smallrow">${ic("clock-3")}${e.duration} мин</span><span class="round">${ic("arrow-up-right")}</span></div></div></a>`;
+  const admission = e.gate === "qr" ? `<span class="qr-label">${ic("qr-code")} QR-допуск</span>` : "";
+  return `<a class="card" href="/events/${e.id}"><div class="photo"><img src="/static/media/${image}.jpg" alt=""><span class="tag">${ic(icon)}${esc(e.sport)}</span><span class="availability">Свободно ${e.capacity - e.booked} из ${e.capacity}</span></div><div class="cardBody"><div class="when">${date(e.start)}</div><h3>${esc(e.title)}</h3><div class="smallrow"><span>${ic("map-pin")}${esc(e.place)}</span></div><div class="cardFoot"><div class="smallrow"><span>${ic("clock-3")}${e.duration} мин</span>${admission}</div><span class="round">${ic("arrow-up-right")}</span></div></div></a>`;
 }
 async function catalogue() {
   events = await api("/events");
@@ -174,10 +175,33 @@ function create() {
     location.assign("/thanks?type=create");
   });
 }
+function ticketPass(t) {
+  if (t.attended) return '<p class="ticket-state">Участие подтверждено.</p>';
+  if (t.status !== "approved") return '<p class="ticket-state">Допуск закрыт.</p>';
+  if (Date.now() >= Date.parse(t.start) + t.duration * 60000) {
+    return '<p class="ticket-state">Событие завершилось.</p>';
+  }
+  if (t.gate === "qr") {
+    const src = "/api/tickets/" + t.id + "/qr";
+    return `<div class="ticket-pass"><img class="qr" src="${src}" width="256" height="256" alt="QR-код билета № ${t.id}"><div><strong>${ic("qr-code")} QR-билет № ${t.id}</strong><p>Покажите код организатору на входе.</p><a href="${src}" class="link" target="_blank" rel="noopener">Открыть QR на весь экран</a></div></div>`;
+  }
+  if (t.gate === "ticket") {
+    return `<div class="ticket-pass"><div><strong>Электронный билет № ${t.id}</strong><p>${esc(me.name)} · Покажите билет организатору.</p></div></div>`;
+  }
+  return '<p class="ticket-state">Вы записаны. Организатор отметит вас по списку.</p>';
+}
 function profilePage() {
   main.innerHTML =
     crumb("Мой профиль") +
     `<h1 class="pageTitle">${esc(me.name)}</h1><p>${esc(me.email)}</p><div class="actions">${link("/create", "Создать событие")}${me.role === "admin" ? link("/admin", "Администрирование", "light") : ""}${btn("Выйти", "logout", 0)}</div>` +
+    panel(
+      "Мои билеты",
+      me.tickets
+        .slice()
+        .sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
+        .map((t) => `<article class="row ticket"><h3><a class="link" href="/events/${t.event}">${esc(t.title)}</a></h3><p class="muted">${date(t.start)} МСК · ${gates[t.gate]}</p>${ticketPass(t)}</article>`)
+        .join("") || `<p>Запишитесь на мероприятие, чтобы здесь появился билет. События с QR-билетом отмечены в афише.</p>${link("/", "К афише")}`,
+    ) +
     panel(
       "Спортивный профиль",
       `<div class="stats">${[
@@ -188,15 +212,6 @@ function profilePage() {
       ]
         .map(([v, l]) => `<div><b>${v}</b>${l}</div>`)
         .join("")}</div>`,
-    ) +
-    panel(
-      "Мои билеты",
-      me.tickets
-        .map(
-          (t) =>
-            `<div class="row ticket"><a class="link" href="/events/${t.event}">${esc(t.title)}</a> · ${date(t.start)}<p>${status[t.status]} · ${gates[t.gate]} · ${t.attended ? "Участие подтверждено" : t.status !== "approved" ? "Допуск закрыт" : Date.now() >= Date.parse(t.start) + t.duration * 60000 ? "Событие завершилось" : "Вы записаны"}</p>${t.status === "approved" && !t.attended && Date.now() < Date.parse(t.start) + t.duration * 60000 ? (t.gate === "qr" ? `<img class="qr" src="/api/tickets/${t.id}/qr" alt="QR-код для прохода">` : t.gate === "ticket" ? `<p>Предъявите организатору билет<br><b>${"№ " + t.id + " · " + esc(me.name)}</b></p>` : "") : ""}</div>`,
-        )
-        .join("") || "Вы пока не записаны на события.",
     ) +
     panel(
       "Достижения",
@@ -223,9 +238,10 @@ async function detail() {
     t = me?.tickets.find((t) => t.event === e.id),
     manage = me && (me.id === e.owner || me.role === "admin"),
     done = Date.now() >= Date.parse(e.start) + e.duration * 60000;
+  const pass = t ? `<div id="my-ticket">${panel("Ваш билет", ticketPass(t))}</div>` : "";
   main.innerHTML =
     crumb(e.title) +
-    `<div class="narrow"><img class="detailphoto" src="/static/media/${sports[e.sport][1]}.jpg" alt=""><p class="when">${date(e.start)} МСК · ${esc(e.sport)}</p><h1 class="pageTitle">${esc(e.title)}</h1><p>${esc(e.description)}</p><div class="smallrow"><span>${ic("map-pin")}${esc(e.place)}</span><span>${e.duration} мин</span><span>${e.minAge}+</span></div><p>Организатор · <b>${esc(e.organizer)}</b><br>Допуск · ${gates[e.gate]}<br>Свободных мест · ${e.capacity - e.booked} из ${e.capacity}</p><div class="actions">${t ? link("/profile", "Мой билет") + (Date.now() < Date.parse(e.start) && !t.attended ? btn("Отменить запись", "cancel", e.id) : "") : e.owner !== me?.id && Date.parse(e.start) > Date.now() && e.booked < e.capacity ? (me ? btn("Записаться", "join", e.id, "lime") : link("/login?next=" + route, "Войти и записаться")) : ""}</div>${panel("Место встречи", '<div id="map" class="map"></div>')}<div id="manage"></div>${panel("Отзывы участников", e.reviews.map((x) => `<div class="row"><strong>${esc(x.name)} · ${x.stars}/5</strong>${esc(x.body)}</div>`).join("") || "Участники пока не оставили отзывов.")}${t?.attended && done ? panel("Ваш отзыв", form("review", select("stars", "Оценка", { 5: "5", 4: "4", 3: "3", 2: "2", 1: "1" }) + '<label>Впечатления<textarea name="body" minlength="5" maxlength="1500" required></textarea></label>', "Опубликовать")) : ""}</div>`;
+    `<div class="narrow"><img class="detailphoto" src="/static/media/${sports[e.sport][1]}.jpg" alt=""><p class="when">${date(e.start)} МСК · ${esc(e.sport)}</p><h1 class="pageTitle">${esc(e.title)}</h1><p>${esc(e.description)}</p><div class="smallrow"><span>${ic("map-pin")}${esc(e.place)}</span><span>${e.duration} мин</span><span>${e.minAge}+</span></div><p>Организатор · <b>${esc(e.organizer)}</b><br>Допуск · ${gates[e.gate]}<br>Свободных мест · ${e.capacity - e.booked} из ${e.capacity}</p><div class="actions">${t ? link("#my-ticket", "Мой билет") + (Date.now() < Date.parse(e.start) && !t.attended ? btn("Отменить запись", "cancel", e.id) : "") : e.owner !== me?.id && Date.parse(e.start) > Date.now() && e.booked < e.capacity ? (me ? btn("Записаться", "join", e.id, "lime") : link("/login?next=" + route, "Войти и записаться")) : ""}</div>${pass}${panel("Место встречи", '<div id="map" class="map"></div>')}<div id="manage"></div>${panel("Отзывы участников", e.reviews.map((x) => `<div class="row"><strong>${esc(x.name)} · ${x.stars}/5</strong>${esc(x.body)}</div>`).join("") || "Участники пока не оставили отзывов.")}${t?.attended && done ? panel("Ваш отзыв", form("review", select("stars", "Оценка", { 5: "5", 4: "4", 3: "3", 2: "2", 1: "1" }) + '<label>Впечатления<textarea name="body" minlength="5" maxlength="1500" required></textarea></label>', "Опубликовать")) : ""}</div>`;
   tempMaps.show($("#map"), [e]);
   if ($("#review"))
     handleForm("review", async (v) => {
@@ -336,8 +352,8 @@ main.addEventListener("click", async (ev) => {
       return;
     }
     if (a === "join") {
-      await api(route + "/join", "POST");
-      location.assign("/thanks");
+      const booking = await api(route + "/join", "POST");
+      location.assign("/thanks?event=" + booking.event);
       return;
     }
     if (a === "cancel") {
@@ -390,12 +406,14 @@ main.addEventListener("click", async (ev) => {
     else if (route === "/admin") await admin();
     else if (/^\/events\/\d+$/.test(route)) await detail();
     else if (route === "/thanks") {
-      const submitted = location.search.includes("type=create");
+      const params = new URLSearchParams(location.search);
+      const submitted = params.get("type") === "create";
+      const ticket = me?.tickets.find((item) => item.event === Number(params.get("event")));
       main.innerHTML =
         crumb("Спасибо") +
         panel(
           submitted ? "Спасибо за заявку!" : "Вы записаны!",
-          `<p>${submitted ? "Администратор проверит мероприятие. Статус доступен в профиле." : "Билет и сведения о мероприятии доступны в профиле."}</p>${link("/profile", "Открыть профиль")}`,
+          `<p>${submitted ? "Администратор проверит мероприятие. Статус доступен в профиле." : "Билет и сведения о мероприятии доступны в профиле."}</p>${ticket ? ticketPass(ticket) : ""}<div class="actions">${link("/profile", "Мои билеты")}${ticket ? link("/events/" + ticket.event, "К мероприятию", "light") : ""}</div>`,
         );
     } else if (route === "/privacy")
       main.innerHTML =

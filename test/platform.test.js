@@ -16,7 +16,7 @@ test("Полный цикл события, границы доступа и ж�
   const port = listener.address().port;
   await new Promise((resolve) => listener.close(resolve));
   const password = randomBytes(16).toString("hex");
-  const child = spawn(process.execPath, ["server.js"], {
+  const child = spawn(process.env.TEST_SERVER_BIN || "temp", [], {
     env: {
       ...process.env,
       PORT: String(port),

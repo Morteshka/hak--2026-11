@@ -6,7 +6,7 @@ services:
     volumes:
       - temp-data:/app/data
     environment:
-      NODE_ENV: production
+      SEED_DEMO: ${SEED_DEMO:-1}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@temp.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       YANDEX_MAPS_API_KEY: ${YANDEX_MAPS_API_KEY:-}

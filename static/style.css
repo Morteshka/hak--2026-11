@@ -493,7 +493,33 @@ textarea {
   overflow-wrap: anywhere;
 }
 .qr {
-  width: 145px;
+  display: block;
+  width: min(192px, 100%);
+  height: auto;
+  aspect-ratio: 1;
+  border: 1px solid #e3e9e0;
+  border-radius: 12px;
+  background: #fff;
+}
+.ticket-pass {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 22px;
+  background: #f2f6f0;
+  border: 1px solid #dce5d9;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+}
+.ticket-pass strong { display: inline-flex; align-items: center; gap: 8px; }
+.ticket-pass p { margin: 6px 0 10px; }
+.ticket-state { color: #536153; }
+.smallrow .qr-label {
+  color: #21411a;
+  background: #e6f3d8;
+  padding: 3px 7px;
+  border-radius: 6px;
 }
 .badge {
   display: inline-block;
