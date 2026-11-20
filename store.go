@@ -129,6 +129,7 @@ func openDB(dir string) *sql.DB {
 	s.exec("PRAGMA busy_timeout=5000")
 	s.exec(schema)
 	s.exec(shopSchema)
+	s.exec(seriesSchema)
 	tx := must(db.Begin())
 	defer tx.Rollback()
 	s.queryer = tx

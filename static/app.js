@@ -167,11 +167,19 @@ function create() {
     crumb("Создать событие") +
     `<div class="narrow"><h1 class="pageTitle">Создать событие</h1>${panel("Заявка на проведение", form("create", input("title", "Название", "text", "minlength=3 maxlength=100") + select("sport", "Вид спорта", Object.fromEntries(Object.keys(sports).map((s) => [s, s]))) + '<label>Программа тренировки<textarea name="description" minlength="10" maxlength="2000" required></textarea></label>' + input("place", "Место встречи") + '<label>Выберите точку на карте Ростова-на-Дону</label><div id="map" class="map"></div><div class="cols">' + input("lat", "Широта", "number", "step=any value=47.223 min=47.10 max=47.36") + input("lng", "Долгота", "number", "step=any value=39.722 min=39.52 max=39.92") + "</div>" + input("start", "Начало по Москве", "datetime-local") + '<div class="cols">' + input("duration", "Длительность, минут", "number", "min=5 max=1440 value=60") + input("capacity", "Количество мест", "number", "min=1 max=5000 value=20") + "</div>" + input("minAge", "Минимальный возраст", "number", "min=0 max=100 value=0") + select("gate", "Допуск на площадку", gates), "Отправить на проверку"))}</div>`;
   tempMaps.pick($("#map"), $("[name=lat]"), $("[name=lng]"));
+  const createSeries = document.createElement("div");
+  createSeries.id = "create-series";
+  createSeries.className = "form";
+  $("#create [name=sport]").closest("label").after(createSeries);
+  buildCreateSeries().catch((error) => { createSeries.textContent = error.message; });
   handleForm("create", async (v) => {
     for (const k of ["duration", "capacity", "minAge", "lat", "lng"])
       v[k] = Number(v[k]);
     v.start = new Date(v.start + ":00+03:00").toISOString();
-    await api("/events", "POST", v);
+    const series = seriesPayload(v);
+    delete v.seriesChoice;
+    delete v.seriesTitle;
+    await api("/events", "POST", { ...v, ...series });
     location.assign("/thanks?type=create");
   });
 }
@@ -245,6 +253,8 @@ async function detail() {
     crumb(e.title) +
     `<div class="narrow"><img class="detailphoto" src="/static/media/${sports[e.sport][1]}.jpg" alt=""><p class="when">${date(e.start)} МСК · ${esc(e.sport)}</p><h1 class="pageTitle">${esc(e.title)}</h1><p>${esc(e.description)}</p><div class="smallrow"><span>${ic("map-pin")}${esc(e.place)}</span><span>${e.duration} мин</span><span>${e.minAge}+</span></div><p>Организатор · <a class="link" href="/people/${e.owner}">${esc(e.organizer)}</a><br>Допуск · ${gates[e.gate]}<br>Свободных мест · ${e.capacity - e.booked} из ${e.capacity}</p><div class="actions">${t ? link("#my-ticket", "Мой билет") + (Date.now() < Date.parse(e.start) && !t.attended ? btn("Отменить запись", "cancel", e.id) : "") : e.owner !== me?.id && Date.parse(e.start) > Date.now() && e.booked < e.capacity ? (me ? btn("Записаться", "join", e.id, "lime") : link("/login?next=" + route, "Войти и записаться")) : ""}</div>${pass}${panel("Место встречи", '<div id="map" class="map"></div>')}<div id="manage"></div>${panel("Отзывы участников", e.reviews.map((x) => `<div class="row"><strong>${esc(x.name)} · ${x.stars}/5</strong>${esc(x.body)}</div>`).join("") || "Участники пока не оставили отзывов.")}${t?.attended && done ? panel("Ваш отзыв", form("review", select("stars", "Оценка", { 5: "5", 4: "4", 3: "3", 2: "2", 1: "1" }) + '<label>Впечатления<textarea name="body" minlength="5" maxlength="1500" required></textarea></label>', "Опубликовать")) : ""}</div>`;
   tempMaps.show($("#map"), [e]);
+  $("#manage").insertAdjacentHTML("beforebegin", '<div id="event-series"></div>');
+  fillEventSeries(e).catch((error) => { $("#event-series").textContent = error.message; });
   if ($("#review"))
     handleForm("review", async (v) => {
       await api(route + "/reviews", "POST", { ...v, stars: +v.stars });
@@ -392,7 +402,7 @@ main.addEventListener("click", async (ev) => {
   $(".city i").style.setProperty("--icon", "url('/vendor/icon/map-pin.svg')");
   document
     .querySelector(
-      `nav a[href="${route.startsWith("/shop") ? "/shop" : route === "/map" ? "/map" : route === "/profile" ? "/profile" : "/"}"]`,
+      `nav a[href="${route.startsWith("/shop") ? "/shop" : route === "/organizers" || route.startsWith("/series/") ? "/organizers" : route === "/map" ? "/map" : route === "/profile" ? "/profile" : "/"}"]`,
     )
     ?.classList.add("active");
   try {
@@ -406,7 +416,8 @@ main.addEventListener("click", async (ev) => {
     else if (route === "/profile") await profilePage();
     else if (route === "/shop") await shopPage();
     else if (route === "/shop/admin") await shopAdmin();
-    else if (route === "/organizers") await organizersPage();
+    else if (route === "/organizers") await rankingPage();
+    else if (/^\/series\/\d+$/.test(route)) await seriesPage();
     else if (/^\/people\/\d+$/.test(route)) await publicProfile();
     else if (route === "/create") create();
     else if (route === "/admin") await admin();

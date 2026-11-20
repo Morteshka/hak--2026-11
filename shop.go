@@ -257,11 +257,7 @@ func (a *application) shopRoutes(mux *http.ServeMux) {
 	a.route(mux, "GET /api/wallet", "", "user", a.wallet)
 	a.route(mux, "POST /api/shop/orders", "Покупка за баллы", "user", purchase)
 	a.route(mux, "PUT /api/profile/decoration", "Оформление профиля", "user", setDecoration)
-	a.route(mux, "GET /api/organizers/leaderboard", "", "", func(r *request) any {
-		qualifying := " FROM events e JOIN users u ON u.id=e.owner WHERE u.banned=0 AND u.deleted=0 AND " + qualifyingEvents
-		return row{"city": rewardCity, "totalEvents": r.one("SELECT count(*) n" + qualifying).num("n"),
-			"organizers": r.all("SELECT u.id,u.name,count(*) events" + qualifying + " GROUP BY u.id,u.name ORDER BY events DESC,u.id LIMIT 30")}
-	})
+	a.route(mux, "GET /api/organizers/leaderboard", "", "", organizerRanking)
 	a.route(mux, "GET /api/people/{id}", "", "", func(r *request) any {
 		person := r.one("SELECT id,name FROM users WHERE id=? AND banned=0 AND deleted=0", r.id)
 		if person == nil {

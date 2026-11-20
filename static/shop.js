@@ -129,17 +129,6 @@ async function publicProfile() {
       person.held + '</b>Проведено</div></div>') + link("/organizers", "Рейтинг организаторов", "light");
 }
 
-async function organizersPage() {
-  const data = await api("/organizers/leaderboard");
-  main.innerHTML = crumb("Организаторы") +
-    '<div class="sectionTop"><h1 class="pageTitle">Организаторы</h1>' + link("/create", "Создать событие") + '</div>' +
-    panel(esc(data.city), '<p>Подтверждённых мероприятий: <b>' + data.totalEvents + '</b></p>' +
-      '<p class="muted">30 баллов за завершённое одобренное событие с участником. Ещё 40 за каждые пять таких событий.</p>' +
-      (data.organizers.length ? '<ol class="leaderboard">' + data.organizers.map((o) =>
-        '<li><div><a href="/people/' + o.id + '" class="link">' + esc(o.name) + '</a><strong>' + o.events + '</strong></div></li>').join("") +
-        '</ol>' : '<p>В рейтинг попадут организаторы с завершёнными мероприятиями.</p>'));
-}
-
 async function shopAdmin() {
   const state = await api("/admin/shop");
   main.innerHTML = crumb("Управление магазином") + '<div class="sectionTop"><h1 class="pageTitle">Управление магазином</h1><div class="actions">' +

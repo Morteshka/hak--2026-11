@@ -67,6 +67,9 @@ func (a *application) routes() http.Handler {
 			fail(404, "Событие недоступно")
 		}
 		e["reviews"] = r.all("SELECT r.stars,r.body,u.name FROM reviews r JOIN users u ON u.id=r.user WHERE event=? ORDER BY r.id DESC", r.id)
+		if membership := r.one("SELECT series FROM event_editions WHERE event=?", r.id); membership != nil {
+			e["seriesId"] = membership["series"]
+		}
 		return e
 	})
 	a.route(mux, "POST /api/events", "Заявка на проведение", "user", createEvent)
@@ -87,6 +90,7 @@ func (a *application) routes() http.Handler {
 	a.route(mux, "POST /api/admin/events/{id}", "Модерация события", "admin", moderateEvent)
 	a.route(mux, "POST /api/admin/users/{id}", "Управление пользователем", "admin", moderateUser)
 	a.shopRoutes(mux)
+	a.seriesRoutes(mux)
 	mux.HandleFunc("GET /api/openapi.json", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "openapi.json") })
 	api404 := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
@@ -137,6 +141,11 @@ func (a *application) page(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	title, found := titles[r.URL.Path]
+	if id, ok := strings.CutPrefix(r.URL.Path, "/series/"); ok {
+		if n, err := strconv.ParseInt(id, 10, 64); err == nil && n > 0 {
+			title, found = "История мероприятий", true
+		}
+	}
 	if id, ok := strings.CutPrefix(r.URL.Path, "/people/"); ok {
 		if n, err := strconv.ParseInt(id, 10, 64); err == nil && n > 0 {
 			title, found = "Профиль спортсмена", true

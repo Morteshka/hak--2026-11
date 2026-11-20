@@ -290,6 +290,41 @@ test("Полный цикл события, границы доступа и ж�
   assert.equal(rewarded.balance,190);
   assert.equal((await req("/wallet","GET",cleanOrgToken)).balance,190);
   assert.equal((await req("/organizers/leaderboard")).organizers[0].events,5);
+  const seriesTitle = "Ежегодный кубок Дона";
+  const upcoming = await req("/events", "POST", cleanOrgToken, { ...data, seriesTitle });
+  const seriesID = upcoming.seriesId;
+  const seriesPath = "/series/" + seriesID;
+  await req(seriesPath, "GET", null, null, 404);
+  assert.equal((await req("/series/mine", "GET", cleanOrgToken))[0].id, seriesID);
+  assert.deepEqual(await req("/series/mine", "GET", other.token), []);
+  await req("/events", "POST", other.token, { ...data, seriesId: seriesID }, 404);
+  await req("/events", "POST", cleanOrgToken, { ...data, sport: "Йога", seriesId: seriesID }, 409);
+  const latestYear = new Date().getUTCFullYear() - 1;
+  const history = new DatabaseSync(join(dir, "temp.sqlite"));
+  const editionIDs = [];
+  for (let year = latestYear - 3; year <= latestYear; year++) {
+    const fixture = history.prepare("INSERT INTO events(owner,title,sport,description,place,lat,lng,start,duration,capacity,minAge,gate,status) SELECT owner,title,sport,description,place,lat,lng,?,duration,capacity,minAge,gate,status FROM events WHERE id=?").run(year + "-07-01T09:00:00.000Z", finalEvent.id);
+    history.prepare("INSERT INTO tickets(event,user,attended,token) VALUES(?,?,1,?)").run(fixture.lastInsertRowid,buyer.id,randomBytes(20).toString("hex"));
+    editionIDs.push(fixture.lastInsertRowid);
+  }
+  history.close();
+  for (const edition of editionIDs) {
+    await req("/events/" + edition + "/series", "PUT", cleanOrgToken, { seriesId: seriesID });
+  }
+  await req("/events/" + editionIDs[0] + "/series", "PUT", cleanOrgToken, { seriesId: seriesID });
+  await req("/events/" + editionIDs[0] + "/series", "PUT", other.token, { seriesId: seriesID }, 403);
+  await req("/events/" + editionIDs[0] + "/series", "PUT", cleanOrgToken, { seriesTitle: "Чужая история" }, 409);
+  const chronology = await req(seriesPath);
+  assert.equal(chronology.title, seriesTitle);
+  assert.equal(chronology.firstYear, latestYear - 3);
+  assert.equal(chronology.yearsHeld, 4);
+  assert.deepEqual(chronology.editions.map(x => [x.edition,x.seriesYear,x.completed]), [[1,1,true],[2,2,true],[3,3,true],[4,4,true]]);
+  assert.equal((await req("/series/leaderboard?year="+latestYear))[0].events,1);
+  assert.equal((await req("/organizers/leaderboard?year="+latestYear)).totalEvents,1);
+  await req("/series/leaderboard?year=x", "GET", null, null, 400);
+  await req("/admin/events/" + upcoming.id, "POST", admin, { status: "approved" });
+  assert.equal((await req(seriesPath)).editions.at(-1).edition,5);
+  assert.equal((await req("/events/" + upcoming.id)).seriesId,seriesID);
   await req("/admin/users/" + who.id, "POST", admin, { action: "ban" });
   await req("/me", "GET", who.token, null, 401);
   const dashboard = await req("/admin", "GET", admin);

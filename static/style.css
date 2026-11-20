@@ -570,6 +570,10 @@ textarea {
 .leaderboard { padding-left: 28px; }
 .leaderboard li { padding: 10px 0 10px 6px; border-bottom: 1px solid #e2e9df; }
 .leaderboard li div { display: flex; gap: 10px; justify-content: space-between; }
+.leaderboard li p { margin: 4px 0 0; }
+.edition-row { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 14px; }
+.edition-row p { margin: 3px 0; }
+.edition-year { border-radius: 8px; background: #e8f1e3; padding: 4px 10px; font-weight: 700; }
 @media (max-width: 740px) {
   .cabinet-grid { grid-template-columns: 1fr; gap: 0; }
   .product-art { height: 146px; }
@@ -725,7 +729,8 @@ details > summary { cursor: pointer; }
   nav {
     order: 2;
     width: 100%;
-    gap: 23px;
+    justify-content: space-between;
+    gap: 8px;
     height: 39px;
     margin-top: 4px;
     font-size: 14px;

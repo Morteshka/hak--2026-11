@@ -277,6 +277,7 @@ func (r *request) available(e row) bool {
 
 func createEvent(r *request) any {
 	b := body[struct {
+		seriesInput
 		Title, Sport, Description, Place, Start, Gate string
 		Lat, Lng                                      float64
 		Duration, Capacity                            int
@@ -294,7 +295,12 @@ func createEvent(r *request) any {
 	}
 	id := must(r.exec("INSERT INTO events(owner,title,sport,description,place,lat,lng,start,duration,capacity,minAge,gate) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
 		r.user["id"], b.Title, b.Sport, b.Description, b.Place, b.Lat, b.Lng, formatTime(start), b.Duration, b.Capacity, *b.MinAge, b.Gate).LastInsertId())
-	return row{"id": id, "status": "pending"}
+	result := row{"id": id, "status": "pending"}
+	if b.SeriesID != 0 || b.SeriesTitle != "" {
+		linked := r.linkEdition(row{"id": id, "owner": r.user["id"], "sport": b.Sport}, b.seriesInput)
+		result["seriesId"] = linked["seriesId"]
+	}
+	return result
 }
 func ageOn(birth string, t time.Time) int {
 	date, err := time.Parse(time.DateOnly, birth)

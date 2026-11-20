@@ -232,6 +232,9 @@
             "items": {
               "$ref": "#/components/schemas/Review"
             }
+          },
+          "seriesId": {
+            "type": "integer"
           }
         },
         "required": [
@@ -1112,12 +1115,27 @@
                 "events"
               ]
             }
+          },
+          "years": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "year": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "year"
+              ]
+            }
           }
         },
         "required": [
           "city",
           "totalEvents",
-          "organizers"
+          "organizers",
+          "years"
         ]
       },
       "PublicProfile": {
@@ -1201,6 +1219,194 @@
         },
         "required": [
           "status"
+        ]
+      },
+      "SeriesSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "sport": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "sport"
+        ]
+      },
+      "Edition": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "place": {
+            "type": "string"
+          },
+          "duration": {
+            "type": "integer"
+          },
+          "attended": {
+            "type": "integer"
+          },
+          "edition": {
+            "type": "integer"
+          },
+          "year": {
+            "type": "integer"
+          },
+          "seriesYear": {
+            "type": "integer"
+          },
+          "completed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "start",
+          "place",
+          "duration",
+          "attended",
+          "edition",
+          "year",
+          "seriesYear",
+          "completed"
+        ]
+      },
+      "SeriesHistory": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "sport": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "integer"
+          },
+          "organizer": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "firstYear": {
+            "type": "integer"
+          },
+          "yearsHeld": {
+            "type": "integer"
+          },
+          "editions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Edition"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "sport",
+          "owner",
+          "organizer",
+          "city",
+          "firstYear",
+          "yearsHeld",
+          "editions"
+        ]
+      },
+      "SeriesRank": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "sport": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "integer"
+          },
+          "organizer": {
+            "type": "string"
+          },
+          "events": {
+            "type": "integer"
+          },
+          "years": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "sport",
+          "owner",
+          "organizer",
+          "events",
+          "years"
+        ]
+      },
+      "SeriesAssignment": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "seriesId": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "seriesId"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seriesTitle": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 100
+              }
+            },
+            "required": [
+              "seriesTitle"
+            ]
+          }
+        ]
+      },
+      "SeriesAssignmentResult": {
+        "type": "object",
+        "properties": {
+          "seriesId": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seriesId"
         ]
       }
     }
@@ -1779,6 +1985,15 @@
                       "ticket",
                       "qr"
                     ]
+                  },
+                  "seriesId": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "seriesTitle": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 100
                   }
                 },
                 "required": [
@@ -1817,6 +2032,9 @@
                         "rejected",
                         "removed"
                       ]
+                    },
+                    "seriesId": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -1888,7 +2106,8 @@
             }
           }
         },
-        "operationId": "postEvents"
+        "operationId": "postEvents",
+        "description": "Можно передать seriesId существующей серии организатора или seriesTitle для новой серии. Без этих полей событие разовое."
       }
     },
     "/api/events/{id}": {
@@ -3367,8 +3586,30 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Некорректный год",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "description": "Год начала события по Москве. Без параметра — за всё время.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1900
+            }
+          }
+        ]
       }
     },
     "/api/admin/shop": {
@@ -3705,6 +3946,233 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ShopOrderUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/series/mine": {
+      "get": {
+        "operationId": "getMySeries",
+        "summary": "Собственные серии",
+        "tags": [
+          "Серии и рейтинг"
+        ],
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SeriesSummary"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужен действующий JWT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/series/{id}": {
+      "get": {
+        "operationId": "getSeriesHistory",
+        "summary": "История опубликованных выпусков серии",
+        "tags": [
+          "Серии и рейтинг"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesHistory"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Серия не найдена или ещё не опубликована",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/series/leaderboard": {
+      "get": {
+        "operationId": "getSeriesLeaderboard",
+        "summary": "Рейтинг серий",
+        "tags": [
+          "Серии и рейтинг"
+        ],
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "description": "Год начала события по Москве. Без параметра — за всё время.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1900
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SeriesRank"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный год",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}/series": {
+      "put": {
+        "operationId": "assignEventSeries",
+        "summary": "Связать выпуск с серией",
+        "tags": [
+          "Серии и рейтинг"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesAssignmentResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Укажите серию или название",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужен действующий JWT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Только для организатора или администратора",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Объект не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Несовпадение вида спорта или выпуск уже привязан",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeriesAssignment"
               }
             }
           }
