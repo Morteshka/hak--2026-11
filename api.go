@@ -365,7 +365,7 @@ func checkIn(r *request) any {
 	if !r.available(e) || expired(e) || time.Now().Before(startTime(e).Add(-time.Hour)) {
 		fail(409, "Отметка доступна за час до начала и во время события")
 	}
-	const eligible = "SELECT t.id,t.attended,u.name FROM tickets t JOIN users u ON u.id=t.user WHERE t.event=? AND u.banned=0 AND u.deleted=0 AND "
+	const eligible = "SELECT t.id,t.user,t.attended,u.name FROM tickets t JOIN users u ON u.id=t.user WHERE t.event=? AND u.banned=0 AND u.deleted=0 AND "
 	var t row
 	if e.str("gate") == "open" || (e.str("gate") == "ticket" && ticket > 0) {
 		t = r.one(eligible+"t.id=?", r.id, ticket)
@@ -379,6 +379,7 @@ func checkIn(r *request) any {
 		fail(409, "Участник уже отмечен")
 	}
 	r.exec("UPDATE tickets SET attended=1 WHERE id=?", t["id"])
+	r.credit(t.num("user"), "attendance", t.num("id"), 10)
 	return row{"name": t["name"]}
 }
 func award(r *request) any {
@@ -436,7 +437,10 @@ func moderateEvent(r *request) any {
 	if !slices.Contains([]string{"approved", "rejected", "removed"}, b.Status) {
 		fail(400, "Проверьте статус")
 	}
-	r.event()
+	event := r.event()
+	if event.str("status") == "approved" && b.Status != "approved" {
+		r.syncPoints(event.num("owner"))
+	}
 	r.exec("UPDATE events SET status=? WHERE id=?", b.Status, r.id)
 	r.audit(b.Status, r.id)
 	return nil

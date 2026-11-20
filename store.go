@@ -128,6 +128,7 @@ func openDB(dir string) *sql.DB {
 	s := store{context.Background(), db}
 	s.exec("PRAGMA busy_timeout=5000")
 	s.exec(schema)
+	s.exec(shopSchema)
 	tx := must(db.Begin())
 	defer tx.Rollback()
 	s.queryer = tx
@@ -141,6 +142,11 @@ func openDB(dir string) *sql.DB {
 	}
 	if os.Getenv("SEED_DEMO") != "0" && s.one("SELECT id FROM users WHERE email='club@seed.invalid'") == nil {
 		s.seed()
+	}
+	if os.Getenv("SEED_DEMO") != "0" && s.one("SELECT id FROM shop_products LIMIT 1") == nil {
+		s.exec("INSERT INTO shop_products(title,description,kind,price,theme) VALUES(?,?,?,?,?),(?,?,?,?,?)",
+			"Первый старт", "Значок для публичного профиля спортсмена.", "badge", 10, "",
+			"Мятный профиль", "Мятная тема оформления личного и публичного профиля.", "theme", 20, "mint")
 	}
 	if err := tx.Commit(); err != nil {
 		panic(err)

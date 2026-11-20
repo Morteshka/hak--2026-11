@@ -649,6 +649,559 @@
           "users",
           "logs"
         ]
+      },
+      "ShopProduct": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "badge",
+              "theme",
+              "physical"
+            ]
+          },
+          "price": {
+            "type": "integer"
+          },
+          "stock": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "theme": {
+            "type": "string",
+            "enum": [
+              "",
+              "mint",
+              "ocean",
+              "violet",
+              "amber"
+            ]
+          },
+          "image": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "kind",
+          "price",
+          "stock",
+          "theme",
+          "image"
+        ]
+      },
+      "ManagedShopProduct": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ShopProduct"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "pickup": {
+                "type": "string"
+              },
+              "active": {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1
+                ]
+              }
+            },
+            "required": [
+              "pickup",
+              "active"
+            ]
+          }
+        ]
+      },
+      "ShopProductInput": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 90
+          },
+          "description": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 1000
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "badge",
+              "theme",
+              "physical"
+            ]
+          },
+          "price": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "stock": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "theme": {
+            "type": "string",
+            "enum": [
+              "",
+              "mint",
+              "ocean",
+              "violet",
+              "amber"
+            ]
+          },
+          "image": {
+            "type": "string",
+            "maxLength": 1500
+          },
+          "pickup": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "expectedStock": {
+            "description": "При изменении физического товара передайте остаток из последнего ответа сервера",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "kind",
+          "price",
+          "active"
+        ]
+      },
+      "ShopOrder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "product": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "badge",
+              "theme",
+              "physical"
+            ]
+          },
+          "price": {
+            "type": "integer"
+          },
+          "theme": {
+            "type": "string",
+            "enum": [
+              "",
+              "mint",
+              "ocean",
+              "violet",
+              "amber"
+            ]
+          },
+          "pickup": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "reserved",
+              "ready",
+              "fulfilled",
+              "cancelled"
+            ]
+          },
+          "created": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "product",
+          "title",
+          "kind",
+          "price",
+          "theme",
+          "pickup",
+          "status",
+          "created"
+        ]
+      },
+      "ManagedShopOrder": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ShopOrder"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "user": {
+                "type": "integer"
+              },
+              "buyer": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "user",
+              "buyer"
+            ]
+          }
+        ]
+      },
+      "Purchase": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "integer"
+          },
+          "requestId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{16,80}$"
+          }
+        },
+        "required": [
+          "product",
+          "requestId"
+        ]
+      },
+      "PurchaseResult": {
+        "type": "object",
+        "properties": {
+          "order": {
+            "$ref": "#/components/schemas/ShopOrder"
+          },
+          "balance": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "order",
+          "balance"
+        ]
+      },
+      "DecorationInput": {
+        "type": "object",
+        "properties": {
+          "badge": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "theme": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "badge",
+          "theme"
+        ]
+      },
+      "Decoration": {
+        "type": "object",
+        "properties": {
+          "badgeOrder": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "themeOrder": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "badge": {
+            "type": "string"
+          },
+          "theme": {
+            "type": "string",
+            "enum": [
+              "",
+              "mint",
+              "ocean",
+              "violet",
+              "amber"
+            ]
+          }
+        },
+        "required": [
+          "badgeOrder",
+          "themeOrder",
+          "badge",
+          "theme"
+        ]
+      },
+      "PointEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "reference": {
+            "type": "integer"
+          },
+          "delta": {
+            "type": "integer"
+          },
+          "at": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "attendance",
+              "organization",
+              "city_bonus",
+              "purchase",
+              "refund"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "delta",
+          "at",
+          "kind"
+        ]
+      },
+      "OrganizerReward": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "type": "string"
+          },
+          "rewardedEvents": {
+            "type": "integer"
+          },
+          "nextMilestone": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "city",
+          "rewardedEvents",
+          "nextMilestone"
+        ]
+      },
+      "Wallet": {
+        "type": "object",
+        "properties": {
+          "balance": {
+            "type": "integer"
+          },
+          "organizer": {
+            "$ref": "#/components/schemas/OrganizerReward"
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PointEntry"
+            }
+          },
+          "orders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShopOrder"
+            }
+          },
+          "decoration": {
+            "$ref": "#/components/schemas/Decoration"
+          }
+        },
+        "required": [
+          "balance",
+          "organizer",
+          "history",
+          "orders",
+          "decoration"
+        ]
+      },
+      "OrganizerLeaderboard": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "type": "string"
+          },
+          "totalEvents": {
+            "type": "integer"
+          },
+          "organizers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "events": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "events"
+              ]
+            }
+          }
+        },
+        "required": [
+          "city",
+          "totalEvents",
+          "organizers"
+        ]
+      },
+      "PublicProfile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "badge": {
+            "type": "string"
+          },
+          "theme": {
+            "type": "string",
+            "enum": [
+              "",
+              "mint",
+              "ocean",
+              "violet",
+              "amber"
+            ]
+          },
+          "level": {
+            "type": "integer"
+          },
+          "held": {
+            "type": "integer"
+          },
+          "attended": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "city",
+          "badge",
+          "theme",
+          "level",
+          "held",
+          "attended"
+        ]
+      },
+      "AdminShop": {
+        "type": "object",
+        "properties": {
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManagedShopProduct"
+            }
+          },
+          "orders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManagedShopOrder"
+            }
+          }
+        },
+        "required": [
+          "products",
+          "orders"
+        ]
+      },
+      "ShopOrderUpdate": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "fulfilled",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
       }
     }
   },
@@ -2522,6 +3075,640 @@
           }
         },
         "operationId": "postAdminUsersId"
+      }
+    },
+    "/api/shop/products": {
+      "get": {
+        "operationId": "listShopProducts",
+        "summary": "Витрина",
+        "description": "Возвращает опубликованные товары. null в stock означает цифровой товар.",
+        "tags": [
+          "Баллы и магазин"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShopProduct"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wallet": {
+      "get": {
+        "operationId": "getWallet",
+        "summary": "Мои баллы, заказы и оформление",
+        "description": "Учитывает новые подтверждённые участия и завершённые события. Возвращает до 50 последних записей баланса.",
+        "tags": [
+          "Баллы и магазин"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Wallet"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужен действующий JWT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shop/orders": {
+      "post": {
+        "operationId": "purchaseShopProduct",
+        "summary": "Купить за баллы",
+        "description": "Повтор запроса с тем же requestId возвращает тот же заказ без повторного списания. Покупка физического товара резервирует одну единицу.",
+        "tags": [
+          "Баллы и магазин"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Проверьте поля запроса",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужен действующий JWT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Объект недоступен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Операция недоступна в текущем состоянии",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Тело запроса больше 32 КиБ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Purchase"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/decoration": {
+      "put": {
+        "operationId": "setProfileDecoration",
+        "summary": "Выбрать украшения",
+        "description": "Передайте номера своих заказов нужного типа или null для сброса соответствующего украшения.",
+        "tags": [
+          "Баллы и магазин"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Decoration"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Проверьте поля запроса",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужен действующий JWT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Украшение не принадлежит аккаунту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Тело запроса больше 32 КиБ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecorationInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/people/{id}": {
+      "get": {
+        "operationId": "getPublicProfile",
+        "summary": "Публичный профиль",
+        "description": "Имя, город, оформление и спортивная статистика без личных данных аккаунта.",
+        "tags": [
+          "Баллы и магазин"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProfile"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Объект недоступен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    },
+    "/api/organizers/leaderboard": {
+      "get": {
+        "operationId": "getOrganizerLeaderboard",
+        "summary": "Рейтинг организаторов",
+        "description": "До 30 организаторов Ростова-на-Дону по числу завершённых одобренных событий с подтверждёнными участниками.",
+        "tags": [
+          "Баллы и магазин"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizerLeaderboard"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/shop": {
+      "get": {
+        "operationId": "getAdminShop",
+        "summary": "Товары и заказы на выдачу",
+        "description": "Администратор видит также скрытые товары, инструкцию по выдаче и получателей физических заказов.",
+        "tags": [
+          "Магазин · администратор"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminShop"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужен действующий JWT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Требуется роль admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/shop/products": {
+      "post": {
+        "operationId": "createShopProduct",
+        "summary": "Добавить товар",
+        "description": "Для physical обязательны stock и pickup. Для theme обязательно выбрать тему. active управляет видимостью.",
+        "tags": [
+          "Магазин · администратор"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedShopProduct"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Проверьте поля запроса",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужен действующий JWT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Требуется роль admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Тело запроса больше 32 КиБ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShopProductInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/shop/products/{id}": {
+      "put": {
+        "operationId": "updateShopProduct",
+        "summary": "Редактировать товар",
+        "description": "Принимает полный объект. Тип фиксируется при создании. stock задаёт текущий свободный остаток. Для физического товара требуется expectedStock с остатком из последнего ответа сервера.",
+        "tags": [
+          "Магазин · администратор"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedShopProduct"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Проверьте поля запроса",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужен действующий JWT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Требуется роль admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Объект недоступен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Операция недоступна в текущем состоянии",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Тело запроса больше 32 КиБ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShopProductInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/shop/orders/{id}": {
+      "post": {
+        "operationId": "updateShopOrder",
+        "summary": "Изменить статус заказа",
+        "description": "reserved → ready → fulfilled. reserved и ready можно отменить. Баллы и остаток возвращаются один раз.",
+        "tags": [
+          "Магазин · администратор"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Проверьте поля запроса",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужен действующий JWT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Требуется роль admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Объект недоступен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Операция недоступна в текущем состоянии",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Тело запроса больше 32 КиБ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShopOrderUpdate"
+              }
+            }
+          }
+        }
       }
     }
   }

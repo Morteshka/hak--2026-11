@@ -224,6 +224,72 @@ test("Полный цикл события, границы доступа и ж�
   await req("/admin/users/" + org.id, "POST", admin, { action: "unban" });
   await req(finalPath+"/reviews","POST",other.token,{stars:2,body:"Старт задержался"});
   assert.ok((await req("/events")).length>0);
+  // Points, order retries, last item contention, refund and public decoration.
+  const buyer = u;
+  const initial = await req("/wallet", "GET", buyer.token);
+  assert.ok(initial.balance >= 20);
+  assert.equal((await req("/wallet", "GET", buyer.token)).balance, initial.balance);
+  const badge = { title: "Значок бегуна", description: "Оформление профиля", kind: "badge", price: 5, active: true };
+  await req("/admin/shop/products", "POST", buyer.token, badge, 403);
+  const digital = await req("/admin/shop/products", "POST", admin, badge);
+  const buyDigital = { product: digital.id, requestId: "integration-badge-001" };
+  const bought = await req("/shop/orders", "POST", buyer.token, buyDigital);
+  assert.equal(bought.balance, initial.balance - 5);
+  assert.equal(bought.order.status, "fulfilled");
+  assert.equal((await req("/shop/orders", "POST", buyer.token, buyDigital)).order.id, bought.order.id);
+  await req("/shop/orders", "POST", buyer.token, { ...buyDigital, requestId: "integration-badge-002" }, 409);
+  await req("/profile/decoration", "PUT", other.token, { badge: bought.order.id, theme: null }, 403);
+  await req("/profile/decoration", "PUT", buyer.token, { badge: bought.order.id, theme: null });
+  const publicProfile = await req("/people/" + buyer.id);
+  assert.equal(publicProfile.badge, badge.title);
+  assert.ok(!("email" in publicProfile) && !("balance" in publicProfile));
+
+  const physical = { title: "Футболка M", description: "Спортивная футболка", kind: "physical", price: 5, stock: 1, pickup: "Покажите номер заказа организатору на площадке.", active: true };
+  const shirt = await req("/admin/shop/products", "POST", admin, physical);
+  assert.ok(!("pickup" in (await req("/shop/products")).find(p => p.id === shirt.id)));
+  const race = await Promise.all([buyer, other].map(async (person) => {
+    const payload = { product: shirt.id, requestId: "integration-shirt-" + person.id };
+    const res = await fetch(base + "/api/shop/orders", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + person.token, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    return { status: res.status, data: await res.json(), person, payload };
+  }));
+  assert.deepEqual(race.map(x => x.status).sort(), [200, 409]);
+  const order = race.find(x => x.status === 200);
+  assert.equal(order.data.order.status, "reserved");
+  assert.equal(order.data.order.pickup, physical.pickup);
+  assert.equal((await req("/shop/products")).find(p => p.id === shirt.id).stock, 0);
+  await req("/admin/shop/products/" + shirt.id, "PUT", admin, { ...physical, expectedStock: 1 }, 409);
+  const adminOrders = await req("/admin/shop", "GET", admin);
+  assert.equal(adminOrders.orders[0].id, order.data.order.id);
+  const processOrder = "/admin/shop/orders/" + order.data.order.id;
+  await req(processOrder, "POST", admin, { status: "fulfilled" }, 409);
+  await req(processOrder, "POST", admin, { status: "ready" });
+  await req(processOrder, "POST", admin, { status: "cancelled" });
+  await req(processOrder, "POST", admin, { status: "cancelled" });
+  assert.equal((await req("/wallet", "GET", order.person.token)).balance, order.data.balance + physical.price);
+  assert.equal((await req("/shop/products")).find(p => p.id === shirt.id).stock, 1);
+  await req("/admin/shop/products/" + shirt.id, "PUT", admin, { ...physical, expectedStock: 1, active: false });
+  assert.ok(!(await req("/shop/products")).some(p => p.id === shirt.id));
+
+  const cleanOrgToken = (await req("/login","POST",null,{email:"coach@example.org",password})).token;
+  const scored = await req("/wallet","GET",cleanOrgToken);
+  assert.equal(scored.organizer.rewardedEvents, 3);
+  assert.equal(scored.balance, 90);
+  const fixtures = new DatabaseSync(join(dir, "temp.sqlite"));
+  for (let i=0;i<2;i++) {
+    const fixture = fixtures.prepare("INSERT INTO events(owner,title,sport,description,place,lat,lng,start,duration,capacity,minAge,gate,status) SELECT owner,title,sport,description,place,lat,lng,start,duration,capacity,minAge,gate,status FROM events WHERE id=?").run(finalEvent.id);
+    fixtures.prepare("INSERT INTO tickets(event,user,attended,token) VALUES(?,?,1,?)").run(fixture.lastInsertRowid,buyer.id,randomBytes(20).toString("hex"));
+  }
+  fixtures.close();
+  const rewarded = await req("/wallet","GET",cleanOrgToken);
+  assert.equal(rewarded.organizer.rewardedEvents,5);
+  assert.equal(rewarded.organizer.nextMilestone,10);
+  assert.equal(rewarded.balance,190);
+  assert.equal((await req("/wallet","GET",cleanOrgToken)).balance,190);
+  assert.equal((await req("/organizers/leaderboard")).organizers[0].events,5);
   await req("/admin/users/" + who.id, "POST", admin, { action: "ban" });
   await req("/me", "GET", who.token, null, 401);
   const dashboard = await req("/admin", "GET", admin);

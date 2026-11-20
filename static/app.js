@@ -151,7 +151,7 @@ async function catalogue() {
 function auth(register) {
   const next = new URLSearchParams(location.search).get("next"),
     dest =
-      next && /^\/(?:create|admin|profile|events\/\d+)$/.test(next)
+      next && /^\/(?:create|admin|profile|shop(?:\/admin)?|events\/\d+)$/.test(next)
         ? next
         : "/profile";
   main.innerHTML =
@@ -190,10 +190,10 @@ function ticketPass(t) {
   }
   return '<p class="ticket-state">Вы записаны. Организатор отметит вас по списку.</p>';
 }
-function profilePage() {
+async function profilePage() {
   main.innerHTML =
-    crumb("Мой профиль") +
-    `<h1 class="pageTitle">${esc(me.name)}</h1><p>${esc(me.email)}</p><div class="actions">${link("/create", "Создать событие")}${me.role === "admin" ? link("/admin", "Администрирование", "light") : ""}${btn("Выйти", "logout", 0)}</div>` +
+    crumb("Личный кабинет") +
+    `<div id="profile-identity">${profileIdentity(me, {}, true)}</div><p class="muted">${esc(me.email)}</p><div class="actions">${link("/create", "Создать событие")}${link("#wallet", "Баллы и заказы", "light")}${link("/people/" + me.id, "Публичный профиль", "light")}${me.role === "admin" ? link("/admin", "Администрирование", "light") : ""}${btn("Выйти", "logout", 0)}</div><div class="cabinet-grid"><div>` +
     panel(
       "Мои билеты",
       me.tickets
@@ -231,7 +231,9 @@ function profilePage() {
             `<div class="row">${e.status === "approved" ? `<a class="link" href="/events/${e.id}">${esc(e.title)}</a>` : esc(e.title)} · ${status[e.status]}</div>`,
         )
         .join("") || "Вы пока не подавали заявок.",
-    );
+    ) + '</div><aside id="wallet" aria-label="Баллы и заказы"><p>Загружаем баллы…</p></aside></div>';
+  await fillCabinet($("#wallet"));
+  if (location.hash === "#wallet") $("#wallet").scrollIntoView();
 }
 async function detail() {
   const e = await api(route),
@@ -241,7 +243,7 @@ async function detail() {
   const pass = t ? `<div id="my-ticket">${panel("Ваш билет", ticketPass(t))}</div>` : "";
   main.innerHTML =
     crumb(e.title) +
-    `<div class="narrow"><img class="detailphoto" src="/static/media/${sports[e.sport][1]}.jpg" alt=""><p class="when">${date(e.start)} МСК · ${esc(e.sport)}</p><h1 class="pageTitle">${esc(e.title)}</h1><p>${esc(e.description)}</p><div class="smallrow"><span>${ic("map-pin")}${esc(e.place)}</span><span>${e.duration} мин</span><span>${e.minAge}+</span></div><p>Организатор · <b>${esc(e.organizer)}</b><br>Допуск · ${gates[e.gate]}<br>Свободных мест · ${e.capacity - e.booked} из ${e.capacity}</p><div class="actions">${t ? link("#my-ticket", "Мой билет") + (Date.now() < Date.parse(e.start) && !t.attended ? btn("Отменить запись", "cancel", e.id) : "") : e.owner !== me?.id && Date.parse(e.start) > Date.now() && e.booked < e.capacity ? (me ? btn("Записаться", "join", e.id, "lime") : link("/login?next=" + route, "Войти и записаться")) : ""}</div>${pass}${panel("Место встречи", '<div id="map" class="map"></div>')}<div id="manage"></div>${panel("Отзывы участников", e.reviews.map((x) => `<div class="row"><strong>${esc(x.name)} · ${x.stars}/5</strong>${esc(x.body)}</div>`).join("") || "Участники пока не оставили отзывов.")}${t?.attended && done ? panel("Ваш отзыв", form("review", select("stars", "Оценка", { 5: "5", 4: "4", 3: "3", 2: "2", 1: "1" }) + '<label>Впечатления<textarea name="body" minlength="5" maxlength="1500" required></textarea></label>', "Опубликовать")) : ""}</div>`;
+    `<div class="narrow"><img class="detailphoto" src="/static/media/${sports[e.sport][1]}.jpg" alt=""><p class="when">${date(e.start)} МСК · ${esc(e.sport)}</p><h1 class="pageTitle">${esc(e.title)}</h1><p>${esc(e.description)}</p><div class="smallrow"><span>${ic("map-pin")}${esc(e.place)}</span><span>${e.duration} мин</span><span>${e.minAge}+</span></div><p>Организатор · <a class="link" href="/people/${e.owner}">${esc(e.organizer)}</a><br>Допуск · ${gates[e.gate]}<br>Свободных мест · ${e.capacity - e.booked} из ${e.capacity}</p><div class="actions">${t ? link("#my-ticket", "Мой билет") + (Date.now() < Date.parse(e.start) && !t.attended ? btn("Отменить запись", "cancel", e.id) : "") : e.owner !== me?.id && Date.parse(e.start) > Date.now() && e.booked < e.capacity ? (me ? btn("Записаться", "join", e.id, "lime") : link("/login?next=" + route, "Войти и записаться")) : ""}</div>${pass}${panel("Место встречи", '<div id="map" class="map"></div>')}<div id="manage"></div>${panel("Отзывы участников", e.reviews.map((x) => `<div class="row"><strong>${esc(x.name)} · ${x.stars}/5</strong>${esc(x.body)}</div>`).join("") || "Участники пока не оставили отзывов.")}${t?.attended && done ? panel("Ваш отзыв", form("review", select("stars", "Оценка", { 5: "5", 4: "4", 3: "3", 2: "2", 1: "1" }) + '<label>Впечатления<textarea name="body" minlength="5" maxlength="1500" required></textarea></label>', "Опубликовать")) : ""}</div>`;
   tempMaps.show($("#map"), [e]);
   if ($("#review"))
     handleForm("review", async (v) => {
@@ -315,7 +317,7 @@ async function admin() {
   const a = await api("/admin");
   main.innerHTML =
     crumb("Администрирование") +
-    '<h1 class="pageTitle">Администрирование</h1>' +
+    '<div class="sectionTop"><h1 class="pageTitle">Администрирование</h1>' + link("/shop/admin", "Управление магазином") + '</div>' +
     panel(
       "Модерация мероприятий",
       a.events
@@ -390,18 +392,22 @@ main.addEventListener("click", async (ev) => {
   $(".city i").style.setProperty("--icon", "url('/vendor/icon/map-pin.svg')");
   document
     .querySelector(
-      `nav a[href="${route === "/" ? "/" : route === "/map" ? "/map" : "/profile"}"]`,
+      `nav a[href="${route.startsWith("/shop") ? "/shop" : route === "/map" ? "/map" : route === "/profile" ? "/profile" : "/"}"]`,
     )
     ?.classList.add("active");
   try {
-    if (["/profile", "/create", "/admin"].includes(route) && !me) {
+    if (["/profile", "/create", "/admin", "/shop/admin"].includes(route) && !me) {
       location.replace("/login?next=" + route);
       return;
     }
     if (route === "/" || route === "/map") await catalogue();
     else if (route === "/login" || route === "/register")
       auth(route === "/register");
-    else if (route === "/profile") profilePage();
+    else if (route === "/profile") await profilePage();
+    else if (route === "/shop") await shopPage();
+    else if (route === "/shop/admin") await shopAdmin();
+    else if (route === "/organizers") await organizersPage();
+    else if (/^\/people\/\d+$/.test(route)) await publicProfile();
     else if (route === "/create") create();
     else if (route === "/admin") await admin();
     else if (/^\/events\/\d+$/.test(route)) await detail();
@@ -418,7 +424,7 @@ main.addEventListener("click", async (ev) => {
     } else if (route === "/privacy")
       main.innerHTML =
         crumb("Конфиденциальность") +
-        `<div class="narrow">${panel("Политика конфиденциальности", `<p>Тестовый сервис «Темп» хранит имя, адрес электронной почты, дату рождения и хеш пароля. Дата рождения нужна для проверки возрастных ограничений. Имя организатора и отзывы участников видны в карточке события.</p><p>Организатор видит список зарегистрированных участников, отметки о посещении и места. Администратор видит аккаунты и журнал действий с IP-адресами. Билеты и история посещений доступны в личном профиле.</p><p>Сеансовый cookie действует два часа. При открытии карты Яндекс получает IP-адрес браузера и координаты отображаемого места. В резервном редакторе точки браузер также обращается к OpenStreetMap. Данные стенда хранятся в локальном томе Docker. Для удаления аккаунта обратитесь к администратору стенда.</p>`)}</div>`;
+        `<div class="narrow">${panel("Политика конфиденциальности", `<p>Тестовый сервис «Темп» хранит имя, адрес электронной почты, дату рождения и хеш пароля. Дата рождения нужна для проверки возрастных ограничений. Имя организатора и отзывы участников видны в карточке события.</p><p>Организатор видит список зарегистрированных участников, отметки о посещении и места. Администратор видит аккаунты и журнал действий с IP-адресами. Билеты, покупки и баланс доступны в личном кабинете. В публичном профиле видны имя, город, уровень, счётчики спортивной активности и выбранное оформление. При покупке физического товара администратор видит имя получателя и сведения о заказе.</p><p>Сеансовый cookie действует два часа. При открытии карты Яндекс получает IP-адрес браузера и координаты отображаемого места. В резервном редакторе точки браузер также обращается к OpenStreetMap. Данные стенда хранятся в локальном томе Docker. Для удаления аккаунта обратитесь к администратору стенда.</p>`)}</div>`;
     else
       main.innerHTML =
         crumb("404") +

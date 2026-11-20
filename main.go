@@ -86,6 +86,7 @@ func (a *application) routes() http.Handler {
 	})
 	a.route(mux, "POST /api/admin/events/{id}", "Модерация события", "admin", moderateEvent)
 	a.route(mux, "POST /api/admin/users/{id}", "Управление пользователем", "admin", moderateUser)
+	a.shopRoutes(mux)
 	mux.HandleFunc("GET /api/openapi.json", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "openapi.json") })
 	api404 := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
@@ -126,7 +127,7 @@ func (a *application) routes() http.Handler {
 	return a.headers(mux)
 }
 
-var titles = map[string]string{"/": "Афиша событий", "/map": "Карта событий", "/create": "Создать событие", "/profile": "Мой профиль", "/login": "Вход", "/register": "Регистрация", "/thanks": "Спасибо за заявку", "/admin": "Администрирование", "/privacy": "Политика конфиденциальности"}
+var titles = map[string]string{"/": "Афиша событий", "/map": "Карта событий", "/create": "Создать событие", "/profile": "Личный кабинет", "/login": "Вход", "/register": "Регистрация", "/thanks": "Спасибо за заявку", "/admin": "Администрирование", "/privacy": "Политика конфиденциальности", "/shop": "Магазин баллов", "/organizers": "Рейтинг организаторов", "/shop/admin": "Управление магазином"}
 
 func (a *application) page(w http.ResponseWriter, r *http.Request) {
 	defer func() {
@@ -136,6 +137,11 @@ func (a *application) page(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	title, found := titles[r.URL.Path]
+	if id, ok := strings.CutPrefix(r.URL.Path, "/people/"); ok {
+		if n, err := strconv.ParseInt(id, 10, 64); err == nil && n > 0 {
+			title, found = "Профиль спортсмена", true
+		}
+	}
 	var e row
 	if id, ok := strings.CutPrefix(r.URL.Path, "/events/"); ok {
 		n, err := strconv.ParseInt(id, 10, 64)
@@ -178,7 +184,7 @@ func (a *application) headers(next http.Handler) http.Handler {
 	}
 	policy := "default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'self'; " +
 		"script-src 'self'" + mapHosts + "; connect-src 'self'" + mapHosts + "; frame-src 'self' https://yandex.ru https://api-maps.yandex.ru; " +
-		"style-src 'self' 'unsafe-inline' blob:; img-src 'self' data: blob: https://tile.openstreetmap.org" + mapHosts + "; media-src 'self' blob:"
+		"style-src 'self' 'unsafe-inline' blob:; img-src 'self' data: blob: https:; media-src 'self' blob:"
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Security-Policy", policy)
 		w.Header().Set("X-Content-Type-Options", "nosniff")
