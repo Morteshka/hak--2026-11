@@ -428,7 +428,60 @@ test("Тестовый HTTP и HTTPS используют одну базу и �
   assert.equal(plain.status, 200);
   assert.match(plain.headers.get("set-cookie"), /^session_http=/);
   assert.doesNotMatch(plain.headers.get("set-cookie"), /; Secure/);
+  const siteCookie = plain.headers.get("set-cookie").split(";")[0];
   const { id } = await plain.json();
+  const flutter = "http://localhost:5173";
+  const health = await fetch(http + "/api", { headers: { Origin: flutter } });
+  assert.equal(health.status, 200);
+  assert.equal(health.headers.get("access-control-allow-origin"), "*");
+  assert.equal((await health.json()).ok, true);
+  const preflight = await fetch(http + "/api/register", {
+    method: "OPTIONS",
+    headers: { Origin: flutter, "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type" },
+  });
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get("access-control-allow-origin"), "*");
+  assert.equal(preflight.headers.get("access-control-allow-methods"), "POST");
+  assert.match(preflight.headers.get("access-control-allow-headers"), /Content-Type/i);
+  assert.equal(preflight.headers.get("access-control-allow-credentials"), null);
+  const badPreflight = await fetch(http + "/api/register", {
+    method: "OPTIONS",
+    headers: { Origin: flutter, "Access-Control-Request-Method": "DELETE" },
+  });
+  assert.equal(badPreflight.status, 404);
+  const flutterCredentials = { email: "flutter@example.org", password: randomBytes(16).toString("hex") };
+  for (const route of ["register", "login"]) {
+    const crossOrigin = await fetch(http + "/api/" + route, {
+      method: "POST",
+      headers: { Origin: flutter, "Content-Type": "application/json" },
+      body: JSON.stringify({ ...flutterCredentials, name: "Flutter", birth: "2000-01-01" }),
+    });
+    assert.equal(crossOrigin.status, 200);
+    assert.equal(crossOrigin.headers.get("access-control-allow-origin"), "*");
+    assert.equal(crossOrigin.headers.get("set-cookie"), null);
+    const session = await crossOrigin.json();
+    const profile = await fetch(http + "/api/me", {
+      headers: { Origin: flutter, Authorization: "Bearer " + session.token },
+    });
+    assert.equal(profile.status, 200);
+    assert.equal(profile.headers.get("access-control-allow-origin"), "*");
+    assert.equal((await profile.json()).id, session.id);
+  }
+  const crossCookie = await fetch(http + "/api/logout", {
+    method: "POST",
+    headers: { Origin: flutter, Cookie: siteCookie },
+  });
+  assert.equal(crossCookie.status, 401);
+  assert.equal(crossCookie.headers.get("access-control-allow-origin"), "*");
+  const embedded = await fetch(http + "/api/me", {
+    headers: { "Sec-Fetch-Site": "same-site", Cookie: siteCookie },
+  });
+  assert.equal(embedded.status, 401);
+  const siteProfile = await fetch(http + "/api/me", {
+    headers: { Origin: http, Cookie: siteCookie },
+  });
+  assert.equal(siteProfile.status, 200);
+  assert.equal((await siteProfile.json()).id, id);
   const login = await new Promise((resolve, reject) => {
     // Only this throwaway service uses a generated loopback certificate.
     const req = httpsRequest(https + "/api/login", {

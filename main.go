@@ -50,6 +50,9 @@ func (a *application) scheme() string {
 
 func (a *application) routes() http.Handler {
 	mux := http.NewServeMux()
+	a.route(mux, "GET /api", "", "", func(r *request) any {
+		return row{"ok": true, "openapi": "/api/openapi.json", "docs": "/docs"}
+	})
 	a.route(mux, "POST /api/register", "Регистрация", "", a.register)
 	a.route(mux, "POST /api/login", "Вход", "", a.login)
 	a.route(mux, "POST /api/logout", "Выход", "user", func(r *request) any {
@@ -98,16 +101,10 @@ func (a *application) routes() http.Handler {
 		jsonReply(w, 404, row{"error": "Метод не найден"})
 	}
 	// Keep the JSON fallback outside the API mux. Mixed method/path fallbacks conflict in ServeMux.
-	apiMux := mux
+	api := apiHandler(mux, api404)
 	mux = http.NewServeMux()
-	mux.Handle("/api/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, pattern := apiMux.Handler(r); pattern == "" {
-			api404(w, r)
-			return
-		}
-		apiMux.ServeHTTP(w, r)
-	}))
-	mux.HandleFunc("/api", api404)
+	mux.HandleFunc("/api/", api)
+	mux.HandleFunc("/api", api)
 	for path, dir := range map[string]string{"/static/": "static", "/vendor/map/": "node_modules/leaflet/dist", "/vendor/swagger/": "node_modules/swagger-ui-dist", "/vendor/icon/": "node_modules/lucide-static/icons"} {
 		mux.Handle("GET "+path, http.StripPrefix(path, http.FileServer(http.Dir(dir))))
 	}

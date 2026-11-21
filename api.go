@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/mail"
-	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -91,9 +90,45 @@ func jsonReply(w http.ResponseWriter, code int, body any) {
 	}
 }
 
+func permitsSiteCookie(r *http.Request) bool {
+	if origin := r.Header.Get("Origin"); origin != "" {
+		return strings.EqualFold(origin, requestScheme(r)+"://"+r.Host)
+	}
+	// Cross-site GETs can omit Origin, for example when embedding an image.
+	site := r.Header.Get("Sec-Fetch-Site")
+	return site == "" || site == "same-origin" || site == "none"
+}
+
+func apiHandler(mux *http.ServeMux, notFound http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Cross-origin clients use explicit Bearer tokens. The API never grants
+		// cross-origin access to the site's cookie session.
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		if method := r.Header.Get("Access-Control-Request-Method"); r.Method == http.MethodOptions && r.Header.Get("Origin") != "" && method != "" {
+			w.Header().Set("Vary", "Origin, Access-Control-Request-Method, Access-Control-Request-Headers")
+			probe := *r
+			probe.Method = method
+			if _, pattern := mux.Handler(&probe); pattern == "" {
+				notFound(w, r)
+				return
+			}
+			w.Header().Set("Access-Control-Allow-Methods", method)
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			w.Header().Set("Access-Control-Max-Age", "600")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		if _, pattern := mux.Handler(r); pattern == "" {
+			notFound(w, r)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	}
+}
+
 func (a *application) authenticate(r *request) row {
 	token := strings.TrimPrefix(r.r.Header.Get("Authorization"), "Bearer ")
-	if token == "" {
+	if token == "" && permitsSiteCookie(r.r) {
 		if c, err := r.r.Cookie(sessionCookieName(r.r)); err == nil {
 			token = c.Value
 		}
@@ -129,17 +164,9 @@ func (a *application) route(mux *http.ServeMux, pattern, title, access string, h
 		w.Header().Set("Cache-Control", "no-store")
 		r := &request{store: store{raw.Context(), a.db}, r: raw, w: w}
 		writes := raw.Method != "GET" && raw.Method != "HEAD"
-		if writes {
-			if origin := raw.Header.Get("Origin"); origin != "" {
-				u, err := url.Parse(origin)
-				if err != nil || !strings.EqualFold(u.Host, raw.Host) || u.Scheme != requestScheme(raw) {
-					fail(403, "Недопустимый источник запроса")
-				}
-			}
-			if (raw.URL.Path == "/api/login" || raw.URL.Path == "/api/register") && !a.limiter.allow(peerIP(raw)) {
-				w.Header().Set("Retry-After", "900")
-				fail(429, "Слишком много попыток. Попробуйте позже.")
-			}
+		if writes && (raw.URL.Path == "/api/login" || raw.URL.Path == "/api/register") && !a.limiter.allow(peerIP(raw)) {
+			w.Header().Set("Retry-After", "900")
+			fail(429, "Слишком много попыток. Попробуйте позже.")
 		}
 		if id := raw.PathValue("id"); id != "" {
 			r.id, _ = strconv.ParseInt(id, 10, 64)
@@ -158,7 +185,7 @@ func (a *application) route(mux *http.ServeMux, pattern, title, access string, h
 			if err := tx.Commit(); err != nil {
 				panic(err)
 			}
-			if r.cookie != nil {
+			if r.cookie != nil && permitsSiteCookie(raw) {
 				http.SetCookie(w, r.cookie)
 			}
 			if result == nil {

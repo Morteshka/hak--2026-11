@@ -13,8 +13,11 @@ HTTP пригоден для тестовых аккаунтов и фиктив
 ### Проверка подключения
 
 ```sh
+curl -i http://45.9.117.195/api
 curl -i http://45.9.117.195/api/events
 ```
+
+Первый запрос возвращает `{"ok":true,"openapi":"/api/openapi.json","docs":"/docs"}` без входа. Для Flutter Web предварительный `OPTIONS /api/register` с заголовками `Origin`, `Access-Control-Request-Method: POST` и `Access-Control-Request-Headers: content-type` возвращает `204`.
 
 В отладочной сборке задайте адрес отдельно от кода:
 
@@ -57,7 +60,7 @@ Future<Map<String, dynamic>> loadWallet(String token) async {
 JWT передаётся как `Authorization: Bearer <token>`. При `401` очистите токен и предложите повторный вход. Ошибка API имеет вид `{"error":"сообщение"}`. QR по `GET /api/tickets/{id}/qr` возвращается как `image/png`. Передайте `bodyBytes` в `Image.memory`.
 
 - **Flutter Android и iOS.** Если система блокирует HTTP, добавьте исключение для тестового адреса в отладочную сетевую конфигурацию. У Android она находится в `android/app/src/debug`. У iOS настройте ATS в debug Info.plist. [Руководство Flutter](https://docs.flutter.dev/release/breaking-changes/network-policy-ios-android) · [Android Network Security Config](https://developer.android.com/privacy-and-security/security-config) · [Apple ATS](https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsexceptiondomains)
-- **Flutter Web.** Для разработки используйте относительный `/api` через прокси сервера разработки или разместите фронтенд на том же источнике, что и API. Страница, открытая по HTTPS, блокирует запрос браузера к публичному HTTP API. Для отдельного публичного фронтенда нужен HTTPS API и согласованный CORS либо обратный прокси на том же источнике.
+- **Flutter Web.** API поддерживает CORS для JSON и заголовка `Authorization`. При обращении с другого адреса оставьте `withCredentials = false` и передавайте JWT как `Authorization: Bearer <token>`. Вход и регистрация возвращают JWT в JSON. Cookie используются только самим сайтом. Страница, открытая по HTTPS, требует HTTPS API с доверенным сертификатом либо прокси на адресе фронтенда.
 
 ## Баллы, покупки и украшения
 
